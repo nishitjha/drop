@@ -2,7 +2,10 @@ module github.com/professional-procrastinator/drop
 
 go 1.26.4
 
-require github.com/gin-gonic/gin v1.12.0
+require (
+	github.com/gin-gonic/gin v1.12.0
+	tinygo.org/x/bluetooth v0.15.0
+)
 
 require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
@@ -51,5 +54,4 @@ require (
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
-	tinygo.org/x/bluetooth v0.15.0 // indirect
 )

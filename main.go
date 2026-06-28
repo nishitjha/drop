@@ -6,12 +6,11 @@ import (
 )
 
 type response struct {
-	Message string 
-} 
+	Message string
+}
 
 func main() {
 	router := gin.Default()
-	
 
 	router.GET("/upload", func(context *gin.Context) {
 		context.JSON(
@@ -22,7 +21,7 @@ func main() {
 	})
 
 	go devices.LinkBLE() //goroutine
-	err := router.Run("0.0.0.0:3001") 
+	err := router.Run("0.0.0.0:3001")
 	if err != nil {
 		panic(err)
 	}
