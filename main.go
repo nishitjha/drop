@@ -27,6 +27,7 @@ func main() {
 	})
 
 	go link.LaunchService() //goroutine
+	go link.ServiceBrowser()
 	err := router.Run("0.0.0.0:3000")
 	if err != nil {
 		panic(err)
