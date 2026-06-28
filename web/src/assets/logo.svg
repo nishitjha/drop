@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <!-- Group centered in the viewBox -->
+  <g transform="translate(250, 360)">
+    
+    <!-- Perspective Scaled Rings -->
+    <!-- The vertical scale (0.22) creates the 3D perspective, making the strokes naturally thinner at the top/bottom and thicker on the sides, just like the original logo. -->
+    <g transform="scale(1, 0.22)">
+      <!-- Inner solid black base -->
+      <circle cx="0" cy="0" r="64" fill="#365cd8" />
+      
+      <!-- Middle ring -->
+      <circle cx="0" cy="0" r="112" fill="none" stroke="#365cd8" stroke-width="20" />
+      
+      <!-- Outer ring -->
+      <circle cx="0" cy="0" r="160" fill="none" stroke="#365cd8" stroke-width="12" />
+    </g>
+
+    <!-- Unscaled Vertical Splash & Droplets -->
+    <g fill="#365cd8">
+      <!-- Bottom tiny droplet -->
+      <circle cx="0" cy="-168" r="3" />
+      
+      <!-- Middle small droplet -->
+      <circle cx="0" cy="-200" r="5" />
+      
+      <!-- Top large droplet -->
+      <circle cx="0" cy="-250" r="11" />
+      
+      <!-- Central water splash spike -->
+      <path d="M -2.5 -150
+               A 2.5 2.5 0 0 1 2.5 -150
+               C 2.5 -40, 4 -2, 56 0
+               L -56 0
+               C -4 -2, -2.5 -40, -2.5 -150 Z" />
+    </g>
+    
+  </g>
+</svg>
