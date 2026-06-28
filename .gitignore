@@ -1,3 +1,4 @@
 tmp/
 web/node_modules
 web/.vscode
+uploads/
