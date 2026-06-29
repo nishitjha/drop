@@ -1,2 +1,2 @@
-*.css linguist-detectable=false
-*.vue linguist-detectable=false
+*.css -linguist-detectable
+*.vue -linguist-detectable
