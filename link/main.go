@@ -3,11 +3,9 @@ package link
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/grandcat/zeroconf"
 )
@@ -42,39 +40,38 @@ func LaunchService() {
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	<-sig
 
-	fmt.Println("Exiting (not a timeout though)..")
+	fmt.Println("Exiting..")
 }
 
 func ServiceBrowser() {
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
-		log.Fatalln("Failed to initialize resolver:", err.Error())
+		panic(err)
 	}
 
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func(results <-chan *zeroconf.ServiceEntry) {
 		for entry := range results {
+
 			if entry.Instance == instanceName {
-				continue //ignore your own device
+				continue //to ignore one's own broadcasts
 			}
 
-			log.Println("----------------------------------------")
-			log.Printf("Found Remote Device: %s\n", entry.Instance)
-			log.Printf("IP Address: %v\n", entry.AddrIPv4)
-			log.Printf("Port: %d\n", entry.Port)
-			log.Printf("Remote Message: %v\n", entry.Text)
-			log.Println("----------------------------------------")
+			fmt.Println("------- OOGA - INSTANCE FOUND -------")
+			fmt.Printf("Device Name: %s\n", entry.Instance)
+			fmt.Printf("IP Address: %v\n", entry.AddrIPv4)
+			fmt.Println("------- OOGA -------")
+
+			//may choose to print out other attributes later
+			//gonna cache instances and their static addresses as I discover them
+			//protcol coming soon!!!111!
 		}
 	}(entries)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
-	defer cancel()
-	err = resolver.Browse(ctx, serviceName, domain, entries)
+	err = resolver.Browse(context.Background(), serviceName, domain, entries)
 
 	if err != nil {
-		log.Fatalln("Couldn't browse for services:", err.Error())
+		panic(err)
 	}
-
-	<-ctx.Done()
 
 }

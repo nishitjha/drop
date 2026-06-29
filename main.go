@@ -26,8 +26,9 @@ func main() {
 		context.JSON(200, JSONresponse{Message: fmt.Sprintf("File %s uploaded successfully", file.Filename)})
 	})
 
-	go link.LaunchService() //goroutine
-	go link.ServiceBrowser()
+	go link.LaunchService()
+	link.ServiceBrowser()
+
 	err := router.Run("0.0.0.0:3000")
 	if err != nil {
 		panic(err)
