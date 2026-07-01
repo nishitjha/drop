@@ -2,7 +2,7 @@
 import { ref } from "vue";
 
 const file = ref<File | null>(null);
-const uploaded = ref<Boolean>(false);
+const shared = ref<Boolean>(false);
 
 const onFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement;
@@ -11,7 +11,7 @@ const onFileChange = (event: Event) => {
   }
 };
 
-const handleUpload = async () => {
+const handleShare = async () => {
   const formData = new FormData();
   formData.append("file", file.value!);
 
@@ -21,17 +21,17 @@ const handleUpload = async () => {
   });
 
   if (res.status == 200) {
-    uploaded.value = true;
+    shared.value = true;
   } else {
-    alert("Something went wrong and the file wasn't uploaded.");
+    alert("Something went wrong and the file wasn't shared.");
   }
 };
 </script>
 
 <template>
-  <div v-if="!uploaded" class="upload">
-    <form @submit.prevent="handleUpload">
-      <h1>Upload a file</h1>
+  <div v-if="!shared" class="share">
+    <form @submit.prevent="handleShare">
+      <h1>Share a file</h1>
 
       <input type="file" @change="onFileChange" />
 
@@ -39,13 +39,13 @@ const handleUpload = async () => {
     </form>
   </div>
 
-  <div v-else="uploaded" class="success-upload">
+  <div v-else="shared" class="success-share">
     Shared with Nishit's Machine.
-    <button @click="uploaded = !uploaded">Share another</button>
+    <button @click="shared = !shared">Share another</button>
   </div>
 </template>
 
 <style>
-.success-upload {
+.success-share {
 }
 </style>

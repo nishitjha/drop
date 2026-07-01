@@ -1,15 +1,13 @@
-<script setup lang="ts">
-import drop from './pages/upload/drop.vue';
-</script>
+<script setup lang="ts"></script>
 
 <template>
-    <img alt="Drop" class="logo" src="./assets/logo.svg" width="92" height="92" />
+  <router-view></router-view>
 </template>
 
 <style scoped>
 .logo {
-  position:absolute;
-  bottom:0px;
+  position: absolute;
+  bottom: 0px;
   margin: 18px;
 }
 </style>

@@ -1,22 +1,55 @@
-package link
+package discovery
 
 import (
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/grandcat/zeroconf"
 )
 
 var (
-	instanceName = "Nishits-Laptop"
+	instanceName = "Nishits-Machine"
 	serviceName  = "_drop._tcp"
 	domain       = "local."
 	port         = 3001
 	metadata     = []string{"txtv=1", "message = i made poopy in my pants"}
 )
+
+type Device struct{
+	deviceName string
+	ipV4 string
+	status int // 0 and 1 corresponding to open-to-requests and busy (already sharing or DND)
+	lastUpdated int // time in seconds since last update
+	uuid string // unique permanent identifier for the device, does not change even if the device name changes
+}
+
+type Cache struct{
+	MuTex sync.RWMutex
+	devices map[string]Device
+}
+
+// apparently you need a pointer cause creating a copy of a mutex is not a good idea
+var Devices = &Cache{
+	devices: make(map[string]Device),
+}
+
+func (cache *Cache) Update(device Device){
+	cache.MuTex.Lock()
+	defer cache.MuTex.Unlock()
+
+	cache.devices[device.uuid] = device
+}
+
+func (cache *Cache) List() (Devices map[string]Device){
+	cache.MuTex.Lock()
+	defer cache.MuTex.Unlock()
+
+	return cache.devices
+}
 
 func LaunchService() {
 	server, err := zeroconf.Register(
@@ -59,12 +92,11 @@ func ServiceBrowser() {
 
 			fmt.Println("------- OOGA - INSTANCE FOUND -------")
 			fmt.Printf("Device Name: %s\n", entry.Instance)
-			fmt.Printf("IP Address: %v\n", entry.AddrIPv4)
+			fmt.Printf("IPv4 Address: %v\n", entry.AddrIPv4)
+			fmt.Printf("IPv6 Address: %v\n", entry.AddrIPv6)
 			fmt.Println("------- OOGA -------")
 
-			//may choose to print out other attributes later
-			//gonna cache instances and their static addresses as I discover them
-			//protcol coming soon!!!111!
+
 		}
 	}(entries)
 

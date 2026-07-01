@@ -1,24 +1,24 @@
 // @ts-ignore
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
-import devices from './pages/devices/devices.vue' 
+import { createRouter, createWebHistory } from "vue-router";
+import devices from "@/views/devices.vue";
 
-const routes: Array<RouteRecordRaw> = [
+const routes: Array<any> = [
   {
-    path: '/',
-    name: 'home',
-    component: devices
+    path: "/",
+    name: "home",
+    component: devices,
   },
   {
-    path: '/upload/:id',
-    name: 'upload',
-    component: () => import('./pages/upload/drop.vue'),
-    props: true 
-  }
-]
+    path: "/share/:deviceId",
+    name: "share",
+    component: () => import("@/views/share.vue"),
+    props: true,
+  },
+];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
-})
+  routes,
+});
 
-export default router
+export default router;
