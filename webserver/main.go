@@ -59,16 +59,17 @@ func SharingRequest(senderName string, senderUUID string) (choice bool) {
     reader := bufio.NewReader(os.Stdin)
 
 	sp := spinner.New(spinner.CharSets[40], 100*time.Millisecond)
-	sp.Suffix = fmt.Sprintf(" Incoming sharing request from device: \"%[1]s\".", senderName)
+	sp.Suffix = fmt.Sprintf(" Incoming sharing request from \"%[1]s\".", senderName)
 	sp.Start()
 
 	fmt.Println("You have 3 minutes to respond. Accept the request by typing 'yes'/'y' or decline by typing 'no'/'n'.")
     
 	answer, _ := reader.ReadString('\n')
 	if answer == "yes\n" || answer == "y\n" {
-		fmt.Printf("Accepted sharing request from device: \"%[1]s\" (UUID: %[2]s).", senderName, senderUUID)
+		fmt.Printf("Accepted sharing request from \"%[1]s\".", senderName)
 		return true
 	}	
+	fmt.Printf("Declined sharing request from \"%[1]s\".", senderName)
 	return false
 
 }
