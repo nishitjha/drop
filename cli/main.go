@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/briandowns/spinner"
-	"github.com/professional-procrastinator/drop/discovery"
-	"github.com/professional-procrastinator/drop/webserver"
+	"github.com/nishitjha/drop/discovery"
+	"github.com/nishitjha/drop/webserver"
 	"github.com/spf13/cobra"
 )
 
@@ -64,6 +64,12 @@ var share = &cobra.Command{
 		devices := discovery.Devices.List()
 		
 		time.Sleep(2 * time.Second)
+
+		if (len(devices) == 0) {
+			fmt.Println("Couldn't find any devices on your network. Make sure they're running Drop and try again.")
+			return
+		}
+
 		for _, device := range devices {
 			if device.DeviceName == args[0] {
 				sp := spinner.New(spinner.CharSets[40], 100*time.Millisecond)
@@ -83,7 +89,7 @@ var share = &cobra.Command{
 
 				response, err := httpClient.Do(req)
 				if err != nil {
-					fmt.Printf("Request failed or timed out: %v\n", err)
+					fmt.Println("The request timed out. Maybe they missed it? (either that or they hate you).")
 					return
 				}
 
@@ -96,10 +102,10 @@ var share = &cobra.Command{
 				} else if response.StatusCode == http.StatusForbidden || response.StatusCode == http.StatusUnauthorized {
 					fmt.Printf("What a fucking loser. \"%s\" declined your sharing request.\n", device.DeviceName)
 				}
-			}
-		
-		fmt.Printf("Couldn't find \"%[1]s\" on your network. Make sure it's running Drop and try again.", args[0])
-		}
+			} else {
+				
+				fmt.Printf("Couldn't find \"%[1]s\" on your network. Make sure it's running Drop and try again.", args[0])
+		}}
 	},
 }
 
