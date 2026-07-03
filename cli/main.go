@@ -73,9 +73,9 @@ var share = &cobra.Command{
 		for _, device := range devices {
 			if device.DeviceName == args[0] {
 				sp := spinner.New(spinner.CharSets[40], 100*time.Millisecond)
-				sp.Suffix = fmt.Sprintf(" Sending a share request to \"%[1]s\". The device has 3 minutes to accept it.", device.DeviceName)
+				sp.Suffix = fmt.Sprintf(" Sending a share request to \"%[1]s\". The device has 3 minutes to accept it. \n", device.DeviceName)
 				sp.Start()
-				
+				 
 				httpClient := &http.Client{}
 				
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)

@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gin-gonic/gin"
+	"github.com/ncruces/zenity"
 )
 
 type JSONresponse struct {
@@ -114,7 +115,7 @@ func (m confirmModel) View() string {
 
 func HandleRequests() {
 	for req := range incomingRequests {
-		m := confirmModel{
+		/*m := confirmModel{
 			req:    req,
 			choice: true,
 		}
@@ -135,6 +136,14 @@ func HandleRequests() {
 		} else {
 			fmt.Printf("Declined sharing request from \"%s\".\n", req.SenderName)
 			req.Response <- false
+		}*/
+		err := zenity.Question(fmt.Sprintf("Do you wish to accept a sharing request from \"%s\"? You have three minutes to respond.", req.SenderName), zenity.Title("Incoming Sharing Request"), zenity.OKLabel("Accept"), zenity.CancelLabel("Decline"))
+		if err != nil {
+			fmt.Printf("Declined sharing request from \"%s\".\n", req.SenderName)
+			req.Response <- false
+		} else {
+			fmt.Printf("Accepted sharing request from \"%s\".\n", req.SenderName)
+			req.Response <- true
 		}
 	}
 }
