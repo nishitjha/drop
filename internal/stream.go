@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 func StreamFile(deviceAddress string, deviceUUID string, filePath string) {
@@ -34,7 +33,8 @@ func StreamFile(deviceAddress string, deviceUUID string, filePath string) {
 	}
 	bodyWriter.Close()
 
-	httpClient := &http.Client{ Timeout: 10 * time.Second }
+	httpClient := &http.Client{ // skip the timeout for now 
+	}	
 	req, _ := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), bodyBuf)
 	req.Header.Set("Content-Type", bodyWriter.FormDataContentType())
 
