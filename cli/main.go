@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/filepicker"
-	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"github.com/nishitjha/drop/discovery"
 	"github.com/nishitjha/drop/internal"
@@ -82,60 +81,6 @@ func (m model) View() tea.View {
 	v.AltScreen = true
 	return v
 }
-type taskResultMsg struct {
-	response *http.Response
-	err      error
-}
-
-type spinnerModel struct {
-	spinner spinner.Model
-	text    string
-	task    func() tea.Msg
-	result  taskResultMsg
-}
-
-var _ tea.Model = spinnerModel{}
-
-func (m spinnerModel) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, m.task)
-}
-
-func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg: 
-		if msg.String() == "ctrl+c" {
-			os.Exit(0)
-		}
-	case taskResultMsg:
-		m.result = msg
-		return m, tea.Quit
-	case spinner.TickMsg:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
-	}
-	return m, nil
-}
-
-func (m spinnerModel) View() tea.View {
-	str := fmt.Sprintf("\n %s %s\n", m.spinner.View(), m.text)
-	return tea.NewView(str)
-}
-
-func runSpinner(text string, task func() tea.Msg) taskResultMsg {
-	s := spinner.New()
-	s.Spinner = spinner.Monkey
-
-	m := spinnerModel{
-		spinner: s,
-		text:    text,
-		task:    task,
-	}
-
-	p := tea.NewProgram(m)
-	finalModel, _ := p.Run()
-	return finalModel.(spinnerModel).result
-}
 var rootCmd = &cobra.Command{
 	Use: "drop",
 	Short: "Start the Drop discovery and broadcast daemon.",
@@ -159,10 +104,10 @@ var list = &cobra.Command{
 	Aliases: []string{"ls", "devices", "peers"},
 	Short: "Use drop [list/ls/devices/peers] to list all devices with Drop on this network.",
 	Run: func(cmd *cobra.Command, args []string) { 
-		runSpinner("Scanning for devices...", func() tea.Msg {
+		internal.RunSpinner("Scanning for devices...", func() tea.Msg {
 			discovery.ServiceBrowser()
 			time.Sleep(2 * time.Second)
-			return taskResultMsg{}
+			return internal.TaskResultMsg{}
 		})
 		devices := discovery.Devices.List()
 		if len(devices) == 0 {
@@ -191,37 +136,59 @@ var share = &cobra.Command{
 		}
 
 		if len(args) == 0 {
-			fmt.Println("You forgot to specify a device! Use \"drop ls\" to see a list of available devices.")
+			fmt.Println("You forgot to specify a device! Use \"drop ls\" to see a list of devices available for sharing.")
 			return
 		}
 
+		var fileInfo os.FileInfo
+		var err error
+		if len(args) > 1 {
+			// check if the file exists
+			if _, err := os.Stat(args[1]); os.IsNotExist(err) {
+				fmt.Printf("The file \"%s\" does not exist. Make sure you typed the absolute/relative path correctly and try again.\n", args[1])
+				return
+			}
+			
+			fileInfo, err = os.Stat(args[1])
+			if err != nil {
+				fmt.Printf("Error opening file \"%s\": %v\n", args[1], err)
+				return
+			}
+		}
+
+
 		for _, device := range devices {
 			if device.DeviceName == args[0] {
-				result := runSpinner(fmt.Sprintf("Sent a share request to \"%s\". The device has 3 minutes to accept it.", device.DeviceName), func() tea.Msg {
+				result := internal.RunSpinner(fmt.Sprintf("Sent a share request to \"%s\". The device has 3 minutes to accept it.", device.DeviceName), func() tea.Msg {
 			httpClient := &http.Client{}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
 
-			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&UUID=%s", device.Address, discovery.InstanceName, device.UUID)
+			// add file name and file size
+			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&UUID=%s&fileName=%s&fileSize=%d", device.Address, discovery.InstanceName, device.UUID, fileInfo.Name(), fileInfo.Size())
 			req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 			if err != nil {
-				return taskResultMsg{err: err}
+				return internal.TaskResultMsg{Error: err}
 			}
 
 			response, err := httpClient.Do(req)
-			return taskResultMsg{response: response, err: err}
+			return internal.TaskResultMsg{Response: response, Error: err}
 		})
-				if result.err != nil {
+				if result.Error != nil {
 					fmt.Println("The request timed out. Maybe they missed it? (either that or they hate you).")
 					return
 				}
-
 				
-				defer result.response.Body.Close()
-				if result.response.StatusCode == http.StatusOK {
+				defer result.Response.Body.Close()
+				if result.Response.StatusCode == http.StatusOK {
 					fmt.Printf("Great success! \"%s\" accepted your sharing request.\n", device.DeviceName)
 					
+					if len(args) > 1 {
+						internal.StreamFile(device.Address, device.UUID, args[1])
+						return
+					}
+
 					picker := filepicker.New()
 
 					homeDir, _ := os.UserHomeDir()
@@ -241,9 +208,8 @@ var share = &cobra.Command{
 						return
 					}
 					
-					// stream the file to the device
-					internal.StreamFile(device.Address, device.UUID, selectedModel.selectedFile)
-				} else if result.response.StatusCode == http.StatusForbidden || result.response.StatusCode == http.StatusUnauthorized {
+					internal.StreamFile(device.Address, device.DeviceName, selectedModel.selectedFile)
+				} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
 					fmt.Printf("What a fucking loser. \"%s\" declined your sharing request.\n", device.DeviceName)
 				}
 			} else {
@@ -260,7 +226,7 @@ func init(){
 func Execute() {
 	err := rootCmd.Execute() 
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 }
 

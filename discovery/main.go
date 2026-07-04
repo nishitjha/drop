@@ -63,7 +63,7 @@ func LaunchService() {
 	)
 
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 
 	defer server.Shutdown()
@@ -80,7 +80,7 @@ func LaunchService() {
 func ServiceBrowser() {
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 
 	entries := make(chan *zeroconf.ServiceEntry)
@@ -109,7 +109,7 @@ func ServiceBrowser() {
 	err = resolver.Browse(context.Background(), ServiceName, domain, entries)
 
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 
 }

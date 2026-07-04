@@ -18,6 +18,8 @@ type AuthRequest struct {
 	SenderName string
 	SenderUUID string
 	Response   chan bool
+	FileName   string
+	FileSize   int64
 }
 
 type confirmModel struct {
@@ -50,6 +52,8 @@ func Listen() {
 	router.GET("/request", func(context *gin.Context) {
 		senderName := context.Query("senderName")
 		senderUUID := context.Query("UUID")
+		fileName := context.Query("fileName")
+		fileSize := context.Query("fileSize")
 
 		answerChan := make(chan bool)
 
@@ -57,6 +61,12 @@ func Listen() {
 			SenderName: senderName,
 			SenderUUID: senderUUID,
 			Response:   answerChan,
+			FileName:   fileName,
+			FileSize:   func() int64 {
+				var size int64
+				fmt.Sscanf(fileSize, "%d", &size)
+				return size
+			}(),
 		}
 
 		select {
@@ -73,7 +83,7 @@ func Listen() {
 
 	err := router.Run("0.0.0.0:3000")
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 }
 
@@ -105,6 +115,12 @@ func (m confirmModel) View() string {
 
 	s := fmt.Sprintf("\n Do you wish to accept a sharing request from \"%s\"?\n", m.req.SenderName)
 	s += " Use the arrow keys to select an option and press enter to confirm. You have three minutes to respond.\n\n"
+
+	if m.req.FileName != "" {
+		s += fmt.Sprintf(" File name: %s\n", m.req.FileName)
+		s += fmt.Sprintf(" File size: %d bytes\n\n", m.req.FileSize)
+	}
+
 	if m.choice {
 		s += "  [ Yes ]    No  \n\n"
 	} else {

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 )
 
-func StreamFile(deviceAddress string, deviceUUID string, filePath string) {
+func StreamFile(deviceAddress string, deviceName string, filePath string) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("Error opening file: %v\n", err)
@@ -18,6 +18,7 @@ func StreamFile(deviceAddress string, deviceUUID string, filePath string) {
 	}
 	defer file.Close()
 
+	
 	bodyBuf := &bytes.Buffer{}
 	bodyWriter := multipart.NewWriter(bodyBuf)
 	fileWriter, err := bodyWriter.CreateFormFile("file", filepath.Base(filePath))
@@ -46,7 +47,7 @@ func StreamFile(deviceAddress string, deviceUUID string, filePath string) {
 
 	defer response.Body.Close()
 	if response.StatusCode == http.StatusOK {
-		fmt.Printf("File %s sent successfully to device %s.\n", filePath, deviceUUID)
+		fmt.Printf("File \"%[1]s\" sent successfully to %[2]s.\n", filepath.Base(filePath), deviceName)
 	} else {
 		fmt.Printf("Failed to send file. Status code: %d\n", response.StatusCode)
 	}
