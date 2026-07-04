@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/grandcat/zeroconf"
+	"github.com/nishitjha/drop/internal"
 )
 
 var (
@@ -68,7 +69,7 @@ func LaunchService() {
 
 	defer server.Shutdown()
 
-	fmt.Printf("Broadcasting as %[1]s (service: %[2]s) \n", InstanceName, ServiceName)
+	fmt.Printf("%s Broadcasting as %s (service: %s) \n", internal.Icons.Positive, InstanceName, ServiceName)
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
