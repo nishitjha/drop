@@ -62,7 +62,7 @@ func Listen() {
 			SenderUUID: senderUUID,
 			Response:   answerChan,
 			FileName:   fileName,
-			FileSize:   func() int64 {
+			FileSize: func() int64 {
 				var size int64
 				fmt.Sscanf(fileSize, "%d", &size)
 				return size
