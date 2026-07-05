@@ -68,45 +68,45 @@ func (progWriter *ProgressWriter) Write(p []byte) (n int, err error) {
 }*/
 
 func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program) error {
-	// instead of using a pipe, we can just use the file directly as the body of the request
+    file, err := os.Open(filePath)
+    if err != nil {
+        program.Send(doneMsg{Err: err})
+        return fmt.Errorf("%s Error opening file: %v", Icons.Negative, err)
+    }
+    defer file.Close()
+    
+    fileInfo, err := os.Stat(filePath)
+    if err != nil {
+        program.Send(doneMsg{Err: err})
+        return fmt.Errorf("%s Error opening file \"%s\": %v\n", Icons.Negative, filePath, err)
+    }
+    
+    reader := io.TeeReader(file, &ProgressWriter{TotalBytes: 0, FileSize: fileInfo.Size(), Program: program})
+    req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), reader)
+    if err != nil {
+        program.Send(doneMsg{Err: err})
+        return fmt.Errorf("%s Error creating request: %v", Icons.Negative, err)
+    }
 
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("%s Error opening file: %v", Icons.Negative, err)
-	}
-	defer file.Close()
+    req.Header.Set("X-Filename", filepath.Base(filePath))
+    req.Header.Set("X-Filesize", fmt.Sprintf("%d", fileInfo.Size()))
+    req.ContentLength = fileInfo.Size()
+    httpClient := &http.Client{}
+    response, err := httpClient.Do(req)
 
-	
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
-		return fmt.Errorf("%s Error opening file \"%s\": %v\n", Icons.Negative, filePath, err)
-	}
-	
-	reader := io.TeeReader(file, &ProgressWriter{TotalBytes: 0, FileSize: fileInfo.Size(), Program: program})
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), reader)
-	if err != nil {
-		return fmt.Errorf("%s Error creating request: %v", Icons.Negative, err)
-	}
+    if err != nil {
+        program.Send(doneMsg{Err: err})
+        return fmt.Errorf("%s Error sending file: %v", Icons.Negative, err)
+    }
+    defer response.Body.Close()
 
-	req.Header.Set("X-Filename", filepath.Base(filePath))
-	req.Header.Set("X-Filesize", fmt.Sprintf("%d", fileInfo.Size()))
-	req.ContentLength = fileInfo.Size()
-
-	httpClient := &http.Client{}
-	response, err := httpClient.Do(req)
-
-	if err != nil {
-		return fmt.Errorf("%s Error sending file: %v", Icons.Negative, err)
-	}
-
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s Failed to send file. Status code: %d", Icons.Negative, response.StatusCode)
-	} else if response.StatusCode == http.StatusOK {
-		fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", Icons.Positive, filepath.Base(filePath), deviceName)
-		
-	program.Send(doneMsg{Err: err})
-	}
-
-	return nil
+    if response.StatusCode != http.StatusOK {
+        fmt.Printf("%s Failed to send file. Status code: %d", Icons.Negative, response.StatusCode)
+        program.Send(doneMsg{Err: fmt.Errorf("Failed to send file. Status code: %d", response.StatusCode)})
+    } else if response.StatusCode == http.StatusOK {
+        fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", Icons.Positive, filepath.Base(filePath), deviceName)
+        
+    program.Send(doneMsg{Err: err})
+    }
+    return nil
 }

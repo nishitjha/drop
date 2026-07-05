@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	"charm.land/bubbles/v2/filepicker"
+	"charm.land/bubbles/v2/progress"
 	"charm.land/lipgloss/v2"
 
 	tea "charm.land/bubbletea/v2"
@@ -248,17 +248,17 @@ var share = &cobra.Command{
 		if result.Response.StatusCode == http.StatusOK {
 			fmt.Printf("%s Great success! \"%s\" accepted your sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
 
-			program := tea.NewProgram(internal.ProgressModel{})
 			if len(args) > 1 {
-				go internal.StreamFile(targetDevice.Address, targetDevice.DeviceName, args[1], program)
-finalProgress, _ := program.Run()
-streamErr := finalProgress.(internal.ProgressModel).Err
+				m := &internal.ProgressModel{
+					Progress:      progress.New(progress.WithDefaultBlend()),
+					DeviceAddress: targetDevice.Address,
+					DeviceName:    targetDevice.DeviceName,
+					FilePath:      args[1],
+				}
+				program := tea.NewProgram(m)
+				m.Program = program
+				program.Run()
 
-if streamErr != nil {
-    fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamErr)
-} else {
-    fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(args[1]), targetDevice.DeviceName)
-}
 				return
 			}
 
@@ -281,15 +281,15 @@ if streamErr != nil {
 				return
 			}
 
-			go internal.StreamFile(targetDevice.Address, targetDevice.DeviceName, selectedModel.selectedFile, program)
-			finalProgress, _ := program.Run()
-			streamErr := finalProgress.(internal.ProgressModel).Err
-
-			if streamErr != nil {
-    			fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamErr)
-			} else {
-				fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(selectedModel.selectedFile), targetDevice.DeviceName)
+			m := &internal.ProgressModel{
+				Progress:      progress.New(progress.WithDefaultBlend()),
+				DeviceAddress: targetDevice.Address,
+				DeviceName:    targetDevice.DeviceName,
+				FilePath:      selectedModel.selectedFile,
 			}
+			program := tea.NewProgram(m)
+			m.Program = program
+			program.Run()
 
 		} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
 			fmt.Printf("%s What a fucking loser. \"%s\" declined your sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)

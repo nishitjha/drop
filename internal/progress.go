@@ -35,15 +35,22 @@ type doneMsg struct {
 	Err error
 }
 
+
 type ProgressModel struct {
-	Progress progress.Model
-	Err      error
+    Progress       progress.Model
+    Err            error
+    DeviceAddress  string
+    DeviceName     string
+    FilePath       string
+    Program        *tea.Program
 }
 
 func (m ProgressModel) Init() tea.Cmd {
-	return nil
+    return func() tea.Msg {
+        go StreamFile(m.DeviceAddress, m.DeviceName, m.FilePath, m.Program)
+        return nil
+    }
 }
-
 func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
@@ -57,11 +64,7 @@ func (m ProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case progressMsg:
-		if m.Progress.Percent() == 1.0 {
-			return m, tea.Quit
-		}
-
-		cmd := m.Progress.IncrPercent(msg.Decimal)
+		cmd := m.Progress.SetPercent(msg.Decimal)
 		return m, cmd
 	case doneMsg:
 		m.Err = msg.Err
