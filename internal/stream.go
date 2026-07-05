@@ -102,8 +102,11 @@ func StreamFile(deviceAddress string, deviceName string, filePath string, progra
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s Failed to send file. Status code: %d", Icons.Negative, response.StatusCode)
-	} 
-
+	} else if response.StatusCode == http.StatusOK {
+		fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", Icons.Positive, filepath.Base(filePath), deviceName)
+		
 	program.Send(doneMsg{Err: err})
+	}
+
 	return nil
 }
