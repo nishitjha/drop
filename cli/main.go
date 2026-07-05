@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/filepicker"
+	"charm.land/lipgloss/v2"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/nishitjha/drop/discovery"
 	"github.com/nishitjha/drop/internal"
@@ -65,10 +67,10 @@ func (m model) View() tea.View {
 	if m.quitting {
 		return tea.NewView("")
 	}
-	
+
 	var s strings.Builder
 	s.WriteString("\nPick a file for sharing. Use the arrow keys or your mouse wheel to scroll and navigate. \nPress enter to choose the selected file.\n\n")
-	
+
 	if m.err != nil {
 		s.WriteString(m.filepicker.Styles.DisabledFile.Render(m.err.Error()))
 	} else if m.selectedFile == "" {
@@ -76,16 +78,16 @@ func (m model) View() tea.View {
 	} else {
 		s.WriteString("Selected file: " + m.filepicker.Styles.Selected.Render(m.selectedFile))
 	}
-	
+
 	s.WriteString("\n\n" + m.filepicker.View() + "\n")
-	
+
 	v := tea.NewView(s.String())
 	v.AltScreen = true
 	return v
 }
 
 var rootCmd = &cobra.Command{
-	Use: "drop",
+	Use:   "drop",
 	Short: "Start the Drop discovery and broadcast daemon.",
 	Run: func(cmd *cobra.Command, args []string) {
 		go discovery.LaunchService()
@@ -95,38 +97,75 @@ var rootCmd = &cobra.Command{
 
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-		
-		<-sig 
+
+		<-sig
 		fmt.Println("Au revoir!")
 		os.Exit(0)
 	},
 }
 
 var list = &cobra.Command{
-	Use: "list",
+	Use:     "list",
 	Aliases: []string{"ls", "devices", "peers"},
-	Short: "Use drop [list/ls/devices/peers] to list all devices with Drop on this network.",
-	Run: func(cmd *cobra.Command, args []string) { 
+	Short:   "Use drop [list/ls/devices/peers] to list all devices with Drop on this network.",
+	Run: func(cmd *cobra.Command, args []string) {
+		var devices map[string]discovery.Device
 		internal.RunSpinner("Scanning for devices...", func() tea.Msg {
 			discovery.ServiceBrowser()
 			time.Sleep(2 * time.Second)
+			devices = discovery.Devices.List()
 			return internal.TaskResultMsg{}
 		})
-		devices := discovery.Devices.List()
+
 		if len(devices) == 0 {
 			fmt.Printf("%s Couldn't find any devices on your network. Make sure they're running Drop and try again.\n", internal.Icons.Negative)
 			return
 		}
-		for _, device := range devices {
-			fmt.Printf("Device: %s, IP: %s, Status: %d, Last Updated: %d, UUID: %s\n", device.DeviceName, device.Address, device.Status, device.LastUpdated, device.UUID)
+
+		// time for some math oogabooga to figure out the widths of columns
+		maxName, maxStatus, maxIP := 11, 9, 10
+
+		for _, d := range devices {
+			if len(d.DeviceName) > maxName {
+				maxName = len(d.DeviceName)
+			}
+			if len(d.Address) > maxIP {
+				maxIP = len(d.Address)
+			}
 		}
+
+		nameCol := lipgloss.NewStyle().Width(maxName + 4)
+		statusCol := lipgloss.NewStyle().Width(maxStatus + 4)
+		ipCol := lipgloss.NewStyle().Width(maxIP + 4)
+
+		fmt.Println()
+		fmt.Print(nameCol.Bold(true).Render("Device Name"))
+		fmt.Print(statusCol.Bold(true).Render("Status"))
+		fmt.Print(ipCol.Bold(true).Render("IP Address"))
+		fmt.Println()
+
+		dividerWidth := maxName + maxStatus + maxIP + 12
+		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(strings.Repeat("─", dividerWidth)))
+
+		for _, d := range devices {
+			status := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Render("Available")
+			if d.Status == 1 {
+				status = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render("Busy")
+			}
+
+			fmt.Print(nameCol.Render(d.DeviceName))
+			fmt.Print(statusCol.Render(status))
+			fmt.Print(ipCol.Render(d.Address))
+			fmt.Println()
+		}
+		fmt.Println()
 	},
 }
 
 var share = &cobra.Command{
-	Use: "share deviceName [file_path]",
+	Use:     "share deviceName [file_path]",
 	Aliases: []string{"share", "sh", "send"},
-	Short: "Use drop [share/sh/send] {device_name} {file_path} to attempt streaming a file across to said device.",
+	Short:   "Use drop [share/sh/send] {device_name} {file_path} to attempt streaming a file across to said device.",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			fmt.Printf("%s You forgot to specify a device! Use \"drop ls\" to see a list of devices available for sharing.\n", internal.Icons.Information)
@@ -135,7 +174,7 @@ var share = &cobra.Command{
 
 		discovery.ServiceBrowser()
 		devices := discovery.Devices.List()
-		
+
 		time.Sleep(2 * time.Second)
 
 		if len(devices) == 0 {
@@ -150,7 +189,7 @@ var share = &cobra.Command{
 				fmt.Printf("%s The file \"%s\" does not exist. Make sure you typed the absolute/relative path correctly and try again.\n", internal.Icons.Negative, args[1])
 				return
 			}
-			
+
 			fileInfo, err = os.Stat(args[1])
 			if err != nil {
 				fmt.Printf("%s Error opening file \"%s\": %v\n", internal.Icons.Negative, args[1], err)
@@ -189,7 +228,7 @@ var share = &cobra.Command{
 				}
 				return 0
 			}())
-			
+
 			req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 			if err != nil {
 				return internal.TaskResultMsg{Error: err}
@@ -203,9 +242,9 @@ var share = &cobra.Command{
 			fmt.Printf("%s The request timed out. Maybe they missed it? (either that or they hate you).\n", internal.Icons.Information)
 			return
 		}
-		
+
 		defer result.Response.Body.Close()
-		
+
 		if result.Response.StatusCode == http.StatusOK {
 			fmt.Printf("%s Great success! \"%s\" accepted your sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
 
@@ -214,14 +253,14 @@ var share = &cobra.Command{
 					err := internal.StreamFile(targetDevice.Address, targetDevice.DeviceName, args[1])
 					return internal.TaskResultMsg{Error: err}
 				})
-				
+
 				if streamResult.Error != nil {
-	// Added \r\033[2K to the start!
-	fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamResult.Error)
-} else {
-	// Added \r\033[2K to the start!
-	fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(args[1]), targetDevice.DeviceName)
-}
+					// Added \r\033[2K to the start!
+					fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamResult.Error)
+				} else {
+					// Added \r\033[2K to the start!
+					fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(args[1]), targetDevice.DeviceName)
+				}
 				return
 			}
 
@@ -250,23 +289,23 @@ var share = &cobra.Command{
 			})
 
 			if streamResult.Error != nil {
-	fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamResult.Error)
-} else {
-	fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(selectedModel.selectedFile), targetDevice.DeviceName)
-}
-			
+				fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamResult.Error)
+			} else {
+				fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(selectedModel.selectedFile), targetDevice.DeviceName)
+			}
+
 		} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
 			fmt.Printf("%s What a fucking loser. \"%s\" declined your sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)
 		}
 	},
 }
 
-func init(){
+func init() {
 	rootCmd.AddCommand(list, share)
 }
 
 func Execute() {
-	err := rootCmd.Execute() 
+	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Printf("%s Error: %v\n", internal.Icons.Negative, err)
 	}

@@ -14,23 +14,23 @@ import (
 )
 
 var (
-	InstanceName = "Nishits-Machine"
+	InstanceName = "Nishits-Laptop"
 	ServiceName  = "_drop._tcp"
 	domain       = "local."
 	Port         = 3001
 	metadata     = []string{"txtv=1", "message = i made poopy in my pants"}
 )
 
-type Device struct{
-	DeviceName string
-	Address string
-	Status int // 0 and 1 corresponding to open-to-requests and busy (already sharing or DND)
-	LastUpdated int // time in seconds since last update
-	UUID string // unique permanent identifier for the device, does not change even if the device name changes
+type Device struct {
+	DeviceName  string
+	Address     string
+	Status      int    // 0 and 1 corresponding to open-to-requests and busy (already sharing or DND)
+	LastUpdated int    // time in seconds since last update
+	UUID        string // unique permanent identifier for the device, does not change even if the device name changes
 }
 
-type Cache struct{
-	MuTex sync.RWMutex
+type Cache struct {
+	MuTex   sync.RWMutex
 	devices map[string]Device
 }
 
@@ -39,14 +39,14 @@ var Devices = &Cache{
 	devices: make(map[string]Device),
 }
 
-func (cache *Cache) Update(device Device){
+func (cache *Cache) Update(device Device) {
 	cache.MuTex.Lock()
 	defer cache.MuTex.Unlock()
 
 	cache.devices[device.UUID] = device
 }
 
-func (cache *Cache) List() (Devices map[string]Device){
+func (cache *Cache) List() (Devices map[string]Device) {
 	cache.MuTex.Lock()
 	defer cache.MuTex.Unlock()
 
@@ -98,14 +98,26 @@ func ServiceBrowser() {
 			// fmt.Println("------- OOGA -------")
 
 			Devices.Update(Device{
-				DeviceName: entry.Instance,
-				Address: entry.AddrIPv4[0].String(),
-				Status: 0,
+				DeviceName:  entry.Instance,
+				Address:     entry.AddrIPv4[0].String(),
+				Status:      0,
 				LastUpdated: 0,
-				UUID: uuid.New().String(), //newly generated each time for now, but should be a permanent identifier for the device in the future
+				UUID:        uuid.New().String(), //newly generated each time for now, but should be a permanent identifier for the device in the future
 			})
+
 		}
 	}(entries)
+
+	//dummy devices for testing locally
+	for i := 0; i < 4; i++ {
+		Devices.Update(Device{
+			DeviceName:  fmt.Sprintf("Test Device %d", i),
+			Address:     fmt.Sprintf("192.168.0.%d", i+2),
+			Status:      0,
+			LastUpdated: 0,
+			UUID:        uuid.New().String(),
+		})
+	}
 
 	err = resolver.Browse(context.Background(), ServiceName, domain, entries)
 
