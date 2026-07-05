@@ -11,14 +11,15 @@ import (
 
 type TaskResultMsg struct {
 	Response *http.Response
-	Error      error
+	Error    error
 }
 
 type SpinnerModel struct {
-	Spinner spinner.Model
-	Text    string
-	Task    func() tea.Msg
-	Result  TaskResultMsg
+	Spinner  spinner.Model
+	Text     string
+	Task     func() tea.Msg
+	Result   TaskResultMsg
+	Quitting bool
 }
 
 var _ tea.Model = SpinnerModel{}
@@ -29,12 +30,13 @@ func (m SpinnerModel) Init() tea.Cmd {
 
 func (m SpinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyPressMsg: 
+	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			os.Exit(0)
 		}
 	case TaskResultMsg:
 		m.Result = msg
+		m.Quitting = true
 		return m, tea.Quit
 	case spinner.TickMsg:
 		var cmd tea.Cmd
@@ -45,7 +47,11 @@ func (m SpinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m SpinnerModel) View() tea.View {
-	str := fmt.Sprintf("\n %s %s\n", m.Spinner.View(), m.Text)
+	if m.Quitting {
+		return tea.NewView("")
+	}
+
+	str := fmt.Sprintf(" %s %s", m.Spinner.View(), m.Text)
 	return tea.NewView(str)
 }
 

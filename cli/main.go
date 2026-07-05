@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -36,6 +37,7 @@ func clearErrorAfter(t time.Duration) tea.Cmd {
 func (m model) Init() tea.Cmd {
 	return m.filepicker.Init()
 }
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
@@ -61,7 +63,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() tea.View {
 	if m.quitting {
-		return tea.NewView("") // cleaer the terminal on quitting
+		return tea.NewView("")
 	}
 	
 	var s strings.Builder
@@ -81,12 +83,13 @@ func (m model) View() tea.View {
 	v.AltScreen = true
 	return v
 }
+
 var rootCmd = &cobra.Command{
 	Use: "drop",
 	Short: "Start the Drop discovery and broadcast daemon.",
 	Run: func(cmd *cobra.Command, args []string) {
 		go discovery.LaunchService()
-		discovery.ServiceBrowser() //runs continously in the background already
+		discovery.ServiceBrowser()
 
 		go webserver.Listen()
 
@@ -111,7 +114,7 @@ var list = &cobra.Command{
 		})
 		devices := discovery.Devices.List()
 		if len(devices) == 0 {
-			fmt.Println("Couldn't find any devices on your network. Make sure they're running Drop and try again.")
+			fmt.Printf("%s Couldn't find any devices on your network. Make sure they're running Drop and try again.\n", internal.Icons.Negative)
 			return
 		}
 		for _, device := range devices {
@@ -125,48 +128,68 @@ var share = &cobra.Command{
 	Aliases: []string{"share", "sh", "send"},
 	Short: "Use drop [share/sh/send] {device_name} {file_path} to attempt streaming a file across to said device.",
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			fmt.Printf("%s You forgot to specify a device! Use \"drop ls\" to see a list of devices available for sharing.\n", internal.Icons.Information)
+			return
+		}
+
 		discovery.ServiceBrowser()
 		devices := discovery.Devices.List()
 		
 		time.Sleep(2 * time.Second)
 
-		if (len(devices) == 0) {
-			fmt.Println("Couldn't find any devices on your network. Make sure they're running Drop and try again.")
-			return
-		}
-
-		if len(args) == 0 {
-			fmt.Println("You forgot to specify a device! Use \"drop ls\" to see a list of devices available for sharing.")
+		if len(devices) == 0 {
+			fmt.Printf("%s Couldn't find any devices on your network. Make sure they're running Drop and try again.\n", internal.Icons.Negative)
 			return
 		}
 
 		var fileInfo os.FileInfo
 		var err error
 		if len(args) > 1 {
-			// check if the file exists
 			if _, err := os.Stat(args[1]); os.IsNotExist(err) {
-				fmt.Printf("The file \"%s\" does not exist. Make sure you typed the absolute/relative path correctly and try again.\n", args[1])
+				fmt.Printf("%s The file \"%s\" does not exist. Make sure you typed the absolute/relative path correctly and try again.\n", internal.Icons.Negative, args[1])
 				return
 			}
 			
 			fileInfo, err = os.Stat(args[1])
 			if err != nil {
-				fmt.Printf("Error opening file \"%s\": %v\n", args[1], err)
+				fmt.Printf("%s Error opening file \"%s\": %v\n", internal.Icons.Negative, args[1], err)
 				return
 			}
 		}
 
-
+		var targetDevice *discovery.Device
 		for _, device := range devices {
 			if device.DeviceName == args[0] {
-				result := internal.RunSpinner(fmt.Sprintf("Sent a share request to \"%s\". The device has 3 minutes to accept it.", device.DeviceName), func() tea.Msg {
+				d := device
+				targetDevice = &d
+				break
+			}
+		}
+
+		if targetDevice == nil {
+			fmt.Printf("%s Couldn't find \"%s\" on your network. Make sure it's running Drop and try again.\n", internal.Icons.Negative, args[0])
+			return
+		}
+
+		result := internal.RunSpinner(fmt.Sprintf("Sent a share request to \"%s\". The device has 3 minutes to accept it.", targetDevice.DeviceName), func() tea.Msg {
 			httpClient := &http.Client{}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
 
-			// add file name and file size
-			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&UUID=%s&fileName=%s&fileSize=%d", device.Address, discovery.InstanceName, device.UUID, fileInfo.Name(), fileInfo.Size())
+			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, discovery.InstanceName, targetDevice.UUID, func() string {
+				if len(args) > 1 {
+					return fileInfo.Name()
+				}
+				return ""
+			}(), func() int64 {
+				if len(args) > 1 {
+					return fileInfo.Size()
+				}
+				return 0
+			}())
+			
 			req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 			if err != nil {
 				return internal.TaskResultMsg{Error: err}
@@ -175,47 +198,66 @@ var share = &cobra.Command{
 			response, err := httpClient.Do(req)
 			return internal.TaskResultMsg{Response: response, Error: err}
 		})
-				if result.Error != nil {
-					fmt.Println("The request timed out. Maybe they missed it? (either that or they hate you).")
-					return
-				}
+
+		if result.Error != nil {
+			fmt.Printf("%s The request timed out. Maybe they missed it? (either that or they hate you).\n", internal.Icons.Information)
+			return
+		}
+		
+		defer result.Response.Body.Close()
+		
+		if result.Response.StatusCode == http.StatusOK {
+			fmt.Printf("%s Great success! \"%s\" accepted your sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
+
+			if len(args) > 1 {
+				streamResult := internal.RunSpinner(fmt.Sprintf("Streaming \"%s\" to \"%s\"...", filepath.Base(args[1]), targetDevice.DeviceName), func() tea.Msg {
+					err := internal.StreamFile(targetDevice.Address, targetDevice.DeviceName, args[1])
+					return internal.TaskResultMsg{Error: err}
+				})
 				
-				defer result.Response.Body.Close()
-				if result.Response.StatusCode == http.StatusOK {
-					fmt.Printf("Great success! \"%s\" accepted your sharing request.\n", device.DeviceName)
-					
-					if len(args) > 1 {
-						internal.StreamFile(device.Address, device.UUID, args[1])
-						return
-					}
+				if streamResult.Error != nil {
+	// Added \r\033[2K to the start!
+	fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamResult.Error)
+} else {
+	// Added \r\033[2K to the start!
+	fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(args[1]), targetDevice.DeviceName)
+}
+				return
+			}
 
-					picker := filepicker.New()
+			picker := filepicker.New()
 
-					homeDir, _ := os.UserHomeDir()
-					picker.CurrentDirectory = homeDir
-					pickerModel := model{filepicker: picker}
-					p := tea.NewProgram(pickerModel)
-					finalModel, err := p.Run()
-					if err != nil {
-						fmt.Printf("Error running the file picker: %v\n", err)
-						fmt.Printf("Maybe you'll have some luck passing in the file path in the command itself? Use \"drop share --help\" to see how to do that.")
-						return
-					}
+			homeDir, _ := os.UserHomeDir()
+			picker.CurrentDirectory = homeDir
+			pickerModel := model{filepicker: picker}
+			p := tea.NewProgram(pickerModel)
+			finalModel, err := p.Run()
+			if err != nil {
+				fmt.Printf("%s Error running the file picker: %v\n", internal.Icons.Negative, err)
+				fmt.Printf("%s Maybe you'll have some luck passing in the file path in the command itself? Use \"drop share --help\" to see how to do that.\n", internal.Icons.Information)
+				return
+			}
 
-					selectedModel := finalModel.(model)
-					if selectedModel.selectedFile == "" {
-						fmt.Println("No file selected for sharing. Exiting Drop.")
-						return
-					}
-					
-					internal.StreamFile(device.Address, device.DeviceName, selectedModel.selectedFile)
-				} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
-					fmt.Printf("What a fucking loser. \"%s\" declined your sharing request.\n", device.DeviceName)
-				}
-			} else {
-				
-				fmt.Printf("Couldn't find \"%[1]s\" on your network. Make sure it's running Drop and try again.", args[0])
-		}}
+			selectedModel := finalModel.(model)
+			if selectedModel.selectedFile == "" {
+				fmt.Println("No file selected for sharing. Exiting Drop.")
+				return
+			}
+
+			streamResult := internal.RunSpinner(fmt.Sprintf("Streaming \"%s\" to \"%s\"...", filepath.Base(selectedModel.selectedFile), targetDevice.DeviceName), func() tea.Msg {
+				err := internal.StreamFile(targetDevice.Address, targetDevice.DeviceName, selectedModel.selectedFile)
+				return internal.TaskResultMsg{Error: err}
+			})
+
+			if streamResult.Error != nil {
+	fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamResult.Error)
+} else {
+	fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(selectedModel.selectedFile), targetDevice.DeviceName)
+}
+			
+		} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
+			fmt.Printf("%s What a fucking loser. \"%s\" declined your sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)
+		}
 	},
 }
 
@@ -226,7 +268,6 @@ func init(){
 func Execute() {
 	err := rootCmd.Execute() 
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("%s Error: %v\n", internal.Icons.Negative, err)
 	}
 }
-
