@@ -2,6 +2,8 @@ package webserver
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -38,16 +40,23 @@ func Listen() {
 	go HandleRequests()
 
 	router.POST("/upload", func(context *gin.Context) {
-		file, err := context.FormFile("file")
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		context.SaveUploadedFile(file, "../uploads/"+file.Filename)
-		context.JSON(200, JSONresponse{Message: fmt.Sprintf("File %s uploaded successfully", file.Filename)})
-		fmt.Printf("Received file %s.\n", file.Filename)
-	})
+        fileName := context.GetHeader("X-Filename")
+        out, err := os.Create("../uploads/" + fileName)
+        if err != nil {
+            fmt.Println(err)
+            context.JSON(500, JSONresponse{Message: err.Error()})
+            return
+        }
+        defer out.Close()
+        _, err = io.Copy(out, context.Request.Body)
+        if err != nil {
+            fmt.Println(err)
+            context.JSON(500, JSONresponse{Message: err.Error()})
+            return
+        }
+        context.JSON(200, JSONresponse{Message: fmt.Sprintf("File %s uploaded successfully", fileName)})
+        fmt.Printf("Received file %s.\n", fileName)
+    })
 
 	router.GET("/request", func(context *gin.Context) {
 		senderName := context.Query("senderName")

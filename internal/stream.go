@@ -3,13 +3,27 @@ package internal
 import (
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	tea "charm.land/bubbletea/v2"
 )
 
-func StreamFile(deviceAddress string, deviceName string, filePath string) error {
+type ProgressWriter struct {
+	TotalBytes int64
+	Err        error
+	Program   *tea.Program
+	FileSize   int64
+}
+
+func (progWriter *ProgressWriter) Write(p []byte) (n int, err error) {
+	progWriter.TotalBytes += int64(len(p))
+	progWriter.Program.Send(progressMsg{Decimal: float64(progWriter.TotalBytes) / float64(progWriter.FileSize)})
+	return len(p), nil
+}
+
+/*func StreamFile(deviceAddress string, deviceName string, filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("Error opening file: %v", err)
@@ -50,5 +64,46 @@ func StreamFile(deviceAddress string, deviceName string, filePath string) error 
 		return fmt.Errorf("Failed to send file. Status code: %d", response.StatusCode)
 	}
 
+	return nil
+}*/
+
+func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program) error {
+	// instead of using a pipe, we can just use the file directly as the body of the request
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("%s Error opening file: %v", Icons.Negative, err)
+	}
+	defer file.Close()
+
+	
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("%s Error opening file \"%s\": %v\n", Icons.Negative, filePath, err)
+	}
+	
+	reader := io.TeeReader(file, &ProgressWriter{TotalBytes: 0, FileSize: fileInfo.Size(), Program: program})
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), reader)
+	if err != nil {
+		return fmt.Errorf("%s Error creating request: %v", Icons.Negative, err)
+	}
+
+	req.Header.Set("X-Filename", filepath.Base(filePath))
+	req.Header.Set("X-Filesize", fmt.Sprintf("%d", fileInfo.Size()))
+	req.ContentLength = fileInfo.Size()
+
+	httpClient := &http.Client{}
+	response, err := httpClient.Do(req)
+
+	if err != nil {
+		return fmt.Errorf("%s Error sending file: %v", Icons.Negative, err)
+	}
+
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s Failed to send file. Status code: %d", Icons.Negative, response.StatusCode)
+	} 
+
+	program.Send(doneMsg{Err: err})
 	return nil
 }

@@ -248,19 +248,17 @@ var share = &cobra.Command{
 		if result.Response.StatusCode == http.StatusOK {
 			fmt.Printf("%s Great success! \"%s\" accepted your sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
 
+			program := tea.NewProgram(internal.ProgressModel{})
 			if len(args) > 1 {
-				streamResult := internal.RunSpinner(fmt.Sprintf("Streaming \"%s\" to \"%s\"...", filepath.Base(args[1]), targetDevice.DeviceName), func() tea.Msg {
-					err := internal.StreamFile(targetDevice.Address, targetDevice.DeviceName, args[1])
-					return internal.TaskResultMsg{Error: err}
-				})
+				go internal.StreamFile(targetDevice.Address, targetDevice.DeviceName, args[1], program)
+finalProgress, _ := program.Run()
+streamErr := finalProgress.(internal.ProgressModel).Err
 
-				if streamResult.Error != nil {
-					// Added \r\033[2K to the start!
-					fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamResult.Error)
-				} else {
-					// Added \r\033[2K to the start!
-					fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(args[1]), targetDevice.DeviceName)
-				}
+if streamErr != nil {
+    fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamErr)
+} else {
+    fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(args[1]), targetDevice.DeviceName)
+}
 				return
 			}
 
@@ -283,13 +281,12 @@ var share = &cobra.Command{
 				return
 			}
 
-			streamResult := internal.RunSpinner(fmt.Sprintf("Streaming \"%s\" to \"%s\"...", filepath.Base(selectedModel.selectedFile), targetDevice.DeviceName), func() tea.Msg {
-				err := internal.StreamFile(targetDevice.Address, targetDevice.DeviceName, selectedModel.selectedFile)
-				return internal.TaskResultMsg{Error: err}
-			})
+			go internal.StreamFile(targetDevice.Address, targetDevice.DeviceName, selectedModel.selectedFile, program)
+			finalProgress, _ := program.Run()
+			streamErr := finalProgress.(internal.ProgressModel).Err
 
-			if streamResult.Error != nil {
-				fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamResult.Error)
+			if streamErr != nil {
+    			fmt.Printf("\r\033[2K%s Error streaming file: %v\n", internal.Icons.Negative, streamErr)
 			} else {
 				fmt.Printf("\r\033[2K%s The file \"%s\" has been sent successfully to %s.\n", internal.Icons.Positive, filepath.Base(selectedModel.selectedFile), targetDevice.DeviceName)
 			}
