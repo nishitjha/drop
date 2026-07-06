@@ -48,7 +48,11 @@ func Listen() {
             return
         }
         defer out.Close()
-        _, err = io.Copy(out, context.Request.Body)
+
+		// again, using a 1mb buffer here but will probably have a user-facing option to change it
+		// that's all for later tho
+        _, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
+		
         if err != nil {
             fmt.Println(err)
             context.JSON(500, JSONresponse{Message: err.Error()})
