@@ -163,7 +163,7 @@ var list = &cobra.Command{
 
 var share = &cobra.Command{
 	Use:     "share deviceName [file_path]",
-	Aliases: []string{"share", "sh", "send"},
+	Aliases: []string{"sh", "send"},
 	Short:   "Use drop [share/sh/send] {device_name} {file_path} to attempt streaming a file across to said device.",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
@@ -280,8 +280,20 @@ var share = &cobra.Command{
 	},
 }
 
+var config = &cobra.Command{
+	Use:   "config [setting] [newValue]",
+	Aliases: []string{"settings", "con"},
+	Short: "Use drop [config/settings/con] to view Drop's configuration. Use drop [config/settings/con] {setting} {newValue} to change a setting.",
+	Run: func(cmd *cobra.Command, args []string) {
+		// viper config logic goes here
+		if len(args) == 0 {
+			
+		}
+	},
+}
+
 func init() {
-	rootCmd.AddCommand(list, share)
+	rootCmd.AddCommand(list, share, config)
 }
 
 func Execute() {
