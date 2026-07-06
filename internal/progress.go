@@ -125,7 +125,7 @@ func (m ProgressModel) View() tea.View {
 		s += pad + l + "\n"
 	}
 	if !m.Done {
-		s += pad + helpStyle("Press Ctrl+C, q, or esc to quit")
+		s += pad + helpStyle("Press ctrl + c, q, or esc to quit")
 	}
 	view := tea.NewView(s)
 	view.AltScreen = true

@@ -69,7 +69,12 @@ func StreamFile(deviceAddress string, deviceName string, filePath string, progra
 	req.Header.Set("X-Filename", filepath.Base(filePath))
 	req.Header.Set("X-Filesize", fmt.Sprintf("%d", fileInfo.Size()))
 	req.ContentLength = fileInfo.Size()
-	httpClient := &http.Client{}
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			WriteBufferSize: 1024 * 1024,
+			ReadBufferSize: 1024 * 1024,
+	},
+	}
 	response, err := httpClient.Do(req)
 	if err != nil {
 		program.Send(doneMsg{Err: err})
