@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -15,57 +16,35 @@ type ProgressWriter struct {
 	Err        error
 	Program   *tea.Program
 	FileSize   int64
+	LastSent  time.Time
 }
 
+type customReader struct {
+    r   io.Reader
+    buf []byte
+}
+
+func (cr *customReader) Read(p []byte) (int, error) {
+    return cr.r.Read(p)
+}
+
+func (cr *customReader) WriteTo(w io.Writer) (int64, error) {
+    return io.CopyBuffer(w, cr.r, cr.buf)
+}
+
+// i was initially sending a message to the progress model everytime a chunk of data was read
+// but i think that was too much overhead, so i'm updating the progress model every 100ms instead
+// i have no idea if this has an actual impact on the speed since it's not really a syscall
+// but fuck it we ball
 func (progWriter *ProgressWriter) Write(p []byte) (n int, err error) {
 	progWriter.TotalBytes += int64(len(p))
-	progWriter.Program.Send(progressMsg{Decimal: float64(progWriter.TotalBytes) / float64(progWriter.FileSize)})
+	now := time.Now()
+    if now.Sub(progWriter.LastSent) >= 100*time.Millisecond || progWriter.TotalBytes == progWriter.FileSize {
+        progWriter.Program.Send(progressMsg{Decimal: float64(progWriter.TotalBytes) / float64(progWriter.FileSize)})
+        progWriter.LastSent = now
+    }
 	return len(p), nil
 }
-
-/*func StreamFile(deviceAddress string, deviceName string, filePath string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("Error opening file: %v", err)
-	}
-	defer file.Close()
-
-	pr, pw := io.Pipe()
-	bodyWriter := multipart.NewWriter(pw)
-
-	contentType := bodyWriter.FormDataContentType()
-	
-	go func() {
-		defer pw.Close()
-		defer bodyWriter.Close()
-		
-		fileWriter, err := bodyWriter.CreateFormFile("file", filepath.Base(filePath))
-		if err != nil {
-			return
-		}
-
-		// I think a 1MB buffer is the right size "objectively"
-		// TODO: add a user-facing setting for buffer size but yeah default to 1MB 
-		buf := make([]byte, 1024*1024)  
-		_, _ = io.CopyBuffer(fileWriter, file, buf)
-	}()
-
-	httpClient := &http.Client{}
-	req, _ := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), pr)
-	req.Header.Set("Content-Type", contentType)
-
-	response, err := httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("Error sending file: %v", err)
-	}
-
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("Failed to send file. Status code: %d", response.StatusCode)
-	}
-
-	return nil
-}*/
 
 func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program) error {
     file, err := os.Open(filePath)
@@ -82,7 +61,10 @@ func StreamFile(deviceAddress string, deviceName string, filePath string, progra
     }
     
     reader := io.TeeReader(file, &ProgressWriter{TotalBytes: 0, FileSize: fileInfo.Size(), Program: program})
-    req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), reader)
+    bodyReader := &customReader{r: reader, buf: make([]byte, 1024*1024)}
+	// this is a 1MB buffer, will probably have a user-facing option to change this in the future.
+	
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), bodyReader)
     if err != nil {
         program.Send(doneMsg{Err: err})
         return fmt.Errorf("%s Error creating request: %v", Icons.Negative, err)
