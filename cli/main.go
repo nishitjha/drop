@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/filepicker"
-	"charm.land/bubbles/v2/progress"
 	"charm.land/lipgloss/v2"
 
 	tea "charm.land/bubbletea/v2"
@@ -249,16 +248,8 @@ var share = &cobra.Command{
 			fmt.Printf("%s Great success! \"%s\" accepted your sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
 
 			if len(args) > 1 {
-				m := &internal.ProgressModel{
-					Progress:      progress.New(progress.WithDefaultBlend()),
-					DeviceAddress: targetDevice.Address,
-					DeviceName:    targetDevice.DeviceName,
-					FilePath:      args[1],
-				}
-				program := tea.NewProgram(m)
-				m.Program = program
-				program.Run()
-
+				// Call Launch directly for CLI arguments
+				internal.Launch(targetDevice.Address, targetDevice.DeviceName, args[1])
 				return
 			}
 
@@ -281,15 +272,7 @@ var share = &cobra.Command{
 				return
 			}
 
-			m := &internal.ProgressModel{
-				Progress:      progress.New(progress.WithDefaultBlend()),
-				DeviceAddress: targetDevice.Address,
-				DeviceName:    targetDevice.DeviceName,
-				FilePath:      selectedModel.selectedFile,
-			}
-			program := tea.NewProgram(m)
-			m.Program = program
-			program.Run()
+			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedModel.selectedFile)
 
 		} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
 			fmt.Printf("%s What a fucking loser. \"%s\" declined your sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)
