@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -15,6 +16,7 @@ type ProgressWriter struct {
 	Err        error
 	Program    *tea.Program
 	FileSize   int64
+	LastSent   time.Time
 }
 
 type customReader struct {
@@ -32,9 +34,14 @@ func (cr *customReader) WriteTo(w io.Writer) (int64, error) {
 
 func (progWriter *ProgressWriter) Write(p []byte) (n int, err error) {
 	progWriter.TotalBytes += int64(len(p))
-	progWriter.Program.Send(progressMsg{Decimal: float64(progWriter.TotalBytes) / float64(progWriter.FileSize)})
+	now := time.Now()
+    if now.Sub(progWriter.LastSent) >= 100*time.Millisecond || progWriter.TotalBytes == progWriter.FileSize {
+        progWriter.Program.Send(progressMsg{Decimal: float64(progWriter.TotalBytes) / float64(progWriter.FileSize)})
+        progWriter.LastSent = now
+    }
 	return len(p), nil
 }
+
 
 func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program) error {
 	file, err := os.Open(filePath)
