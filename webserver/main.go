@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 	//"github.com/ncruces/zenity"
 	//"github.com/sqweek/dialog"
 )
@@ -97,7 +98,7 @@ func Listen() {
 		}
 	})
 
-	err := router.Run("0.0.0.0:3000")
+	err := router.Run(fmt.Sprintf("0.0.0.0:%d", viper.GetInt("webserver.port")))
 	if err != nil {
 		fmt.Println(err)
 	}

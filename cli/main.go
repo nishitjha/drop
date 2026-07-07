@@ -18,6 +18,7 @@ import (
 	"github.com/nishitjha/drop/internal"
 	"github.com/nishitjha/drop/webserver"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 type model struct {
@@ -337,12 +338,19 @@ var share = &cobra.Command{
 
 var config = &cobra.Command{
 	Use:     "config [setting] [newValue]",
-	Aliases: []string{"settings", "con"},
-	Short:   "Use drop [config/settings/con] to view Drop's configuration. Use drop [config/settings/con] {setting} {newValue} to change a setting.",
+	Aliases: []string{"settings", "con", "conf"},
+	Short:   "Use drop [config/settings/con/conf] to view Drop's configuration. Use drop [config/settings/con] {setting} {newValue} to change a setting.",
 	Run: func(cmd *cobra.Command, args []string) {
-		// viper config logic goes here
 		if len(args) == 0 {
+			for _, key := range viper.AllKeys() {
+				fmt.Printf("%s: %v\n", key, viper.Get(key))
+			}
+			return
+		}
 
+		if len(args) == 1 {
+			fmt.Printf("%s: %v\n", args[0], viper.Get(args[0]))
+			return
 		}
 	},
 }

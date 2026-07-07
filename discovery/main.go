@@ -11,15 +11,23 @@ import (
 	"github.com/google/uuid"
 	"github.com/grandcat/zeroconf"
 	"github.com/nishitjha/drop/internal"
+	"github.com/spf13/viper"
 )
 
 var (
-	InstanceName = "Nishits-Laptop"
-	ServiceName  = "_drop._tcp"
-	domain       = "local."
-	Port         = 3001
-	metadata     = []string{"txtv=1", "message = i made poopy in my pants"}
+	InstanceName string
+	ServiceName  string
+	Domain       string
+	Port         int
+	Metadata     []string
 )
+func Initialize() {
+	InstanceName = viper.GetString("discovery.instanceName")
+	ServiceName  = viper.GetString("discovery.advanced.serviceName")
+	Domain       = viper.GetString("discovery.advanced.domain")
+	Port         = viper.GetInt("discovery.advanced.port")
+	Metadata     = viper.GetStringSlice("discovery.advanced.metadata")
+}
 
 type Device struct {
 	DeviceName  string
@@ -57,9 +65,9 @@ func LaunchService() {
 	server, err := zeroconf.Register(
 		InstanceName,
 		ServiceName,
-		domain,
+		Domain,
 		Port,
-		metadata,
+		Metadata,
 		nil, // auto-select from interfaces idk I'm not doing allat
 	)
 
@@ -119,7 +127,7 @@ func ServiceBrowser() {
 		})
 	}
 
-	err = resolver.Browse(context.Background(), ServiceName, domain, entries)
+	err = resolver.Browse(context.Background(), ServiceName, Domain, entries)
 
 	if err != nil {
 		fmt.Println(err)
