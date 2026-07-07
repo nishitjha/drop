@@ -24,16 +24,21 @@ func init() {
 	viper.SetDefault("sharing.trustedDevices", []string{})
 	viper.SetDefault("sharing.rejectUntrustedDevices", false)
 	viper.SetDefault("sharing.autoRenameExistingFiles", true)
-	
+
 	viper.SetDefault("sharing.acceptTextSnippets", true)
-	viper.SetDefault("sharing.autoCopyToClipboard", true) 
-	
+	viper.SetDefault("sharing.autoCopyToClipboard", true)
+
 	viper.SetDefault("sharing.advanced.enableTransferLog", true)
 	viper.SetDefault("sharing.advanced.logFilePath", filepath.Join(home, ".drop_history.log"))
-	
-	viper.SetDefault("sharing.folders.autoArchive", true)
+
 	viper.SetDefault("sharing.folders.archiveFormat", "zip") // or tar.gz
-	viper.SetDefault("sharing.folders.autoExtractOnReceipt", true)
+	viper.SetDefault("sharing.folders.compressionLevel", 0)  // 0 is no compression, 1 is best speed w minimal compression and so on
+	// most users are fucking morons and will probably think "omg yeah i wanna compress my files so that they take lesser time to stream across"
+	// but compression is very CPU intensive and will actually slow it down for most users
+	// imo for users with a fast internet connection, compression is a waste of CPU cycles and the bandwidth is not the bottleneck
+	// if you have a slow internet connection, compression will probably help
+	// either way the default should be 0 ngl
+	viper.SetDefault("sharing.folders.autoExtractOnReceive", true)
 
 	viper.SetDefault("discovery.instanceName", hostname)
 	viper.SetDefault("discovery.advanced.serviceName", "_drop._tcp")

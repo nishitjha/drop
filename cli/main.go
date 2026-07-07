@@ -161,11 +161,29 @@ var list = &cobra.Command{
 	},
 }
 
+var textMode bool
+
 var share = &cobra.Command{
 	Use:     "share deviceName [file_path]",
 	Aliases: []string{"sh", "send"},
 	Short:   "Use drop [share/sh/send] {device_name} {file_path} to attempt streaming a file across to said device.",
 	Run: func(cmd *cobra.Command, args []string) {
+		textMode, _ = cmd.Flags().GetBool("text")
+
+		if textMode {
+			// the second argument is the text snippet to share
+			var textSnippet string
+			if len(args) > 1 {
+				textSnippet = args[1]
+			} else {
+				fmt.Printf("%s You forgot to pass in the text! Use \"drop share --t {device_name} {text_snippet}\" to share said text snippet.\n", internal.Icons.Information)
+				return
+			}
+
+			fmt.Println(textSnippet)
+			return
+		}
+
 		if len(args) == 0 {
 			fmt.Printf("%s You forgot to specify a device! Use \"drop ls\" to see a list of devices available for sharing.\n", internal.Icons.Information)
 			return
@@ -281,19 +299,20 @@ var share = &cobra.Command{
 }
 
 var config = &cobra.Command{
-	Use:   "config [setting] [newValue]",
+	Use:     "config [setting] [newValue]",
 	Aliases: []string{"settings", "con"},
-	Short: "Use drop [config/settings/con] to view Drop's configuration. Use drop [config/settings/con] {setting} {newValue} to change a setting.",
+	Short:   "Use drop [config/settings/con] to view Drop's configuration. Use drop [config/settings/con] {setting} {newValue} to change a setting.",
 	Run: func(cmd *cobra.Command, args []string) {
 		// viper config logic goes here
 		if len(args) == 0 {
-			
+
 		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(list, share, config)
+	share.Flags().BoolVarP(&textMode, "text", "t", false, "Share a text snippet instead of a file.")
 }
 
 func Execute() {
