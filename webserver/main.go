@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -44,6 +45,13 @@ func Listen() {
 	go HandleRequests()
 
 	router.POST("/upload", func(context *gin.Context) {
+		receiveDir := viper.GetString("sharing.receiveDir")
+		askEverytime := viper.GetBool("sharing.askReceiveDirEverytime")
+
+		if askEverytime {
+			// i'll ask them i promise
+		}
+
 		isTextSnippet := context.GetHeader("X-TextSnippet") == "true"
 
 		if isTextSnippet {
@@ -57,7 +65,6 @@ func Listen() {
 					return
 				}
 
-				// paste the text snippet to the clipboard
 				bodyBytes, err := io.ReadAll(context.Request.Body)
 				if err != nil {
 					fmt.Printf("%s Error reading request body: %v\n", internal.Icons.Negative, err)
@@ -72,10 +79,17 @@ func Listen() {
 				
 				return
 			}
+			timestamp := time.Now().Format("02-01-06")
+			location := filepath.Join(receiveDir, fmt.Sprintf("text_snippet_%s.txt", timestamp))
 
-			//save to some txt file in the uploads folder with the current timestamp as the filename
-			timestamp := time.Now().Unix()
-			file, err := os.Create(fmt.Sprintf("../uploads/text_snippet_%d.txt", timestamp))
+			err := os.MkdirAll(receiveDir, os.ModePerm)
+			if err != nil {
+				fmt.Printf("%s Error creating directory: %v\n", internal.Icons.Negative, err)
+				context.JSON(500, JSONresponse{Message: "Something went wrong."})
+				return
+			}
+
+			file, err := os.Create(location)
 			if err != nil {
 				fmt.Printf("%s Error creating text snippet file: %v\n", internal.Icons.Negative, err)
 				context.JSON(500, JSONresponse{Message: "Something went wrong."})
@@ -90,32 +104,39 @@ func Listen() {
 				return
 			}
 
-			fmt.Printf("%s The text snippet has been saved to %s.\n", internal.Icons.Positive, file.Name())
+			fmt.Printf("%s The text snippet has been saved at %s.\n", internal.Icons.Positive, location)
 			context.JSON(200, JSONresponse{Message: "Text snippet sent successfully."})
 			return
 		}
 
-        fileName := context.GetHeader("X-Filename")
-        out, err := os.Create("../uploads/" + fileName)
-        if err != nil {
-            fmt.Println(err)
-            context.JSON(500, JSONresponse{Message: err.Error()})
-            return
-        }
-        defer out.Close()
-
-		// again, using a 1mb buffer here but will probably have a user-facing option to change it
-		// that's all for later tho
-        _, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
+		fileName := context.GetHeader("X-Filename")
+		location := filepath.Join(receiveDir, fileName)
 		
-        if err != nil {
-            fmt.Println(err)
-            context.JSON(500, JSONresponse{Message: err.Error()})
-            return
-        }
-        context.JSON(200, JSONresponse{Message: fmt.Sprintf("File %s uploaded successfully", fileName)})
-        fmt.Printf("%sReceived file %s.\n", internal.Icons.Positive, fileName)
-    })
+		err := os.MkdirAll(receiveDir, os.ModePerm)
+		if err != nil {
+			fmt.Println(err)
+			context.JSON(500, JSONresponse{Message: err.Error()})
+			return
+		}
+
+		out, err := os.Create(location)
+		if err != nil {
+			fmt.Println(err)
+			context.JSON(500, JSONresponse{Message: err.Error()})
+			return
+		}
+		defer out.Close()
+
+		_, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
+		
+		if err != nil {
+			fmt.Println(err)
+			context.JSON(500, JSONresponse{Message: err.Error()})
+			return
+		}
+		context.JSON(200, JSONresponse{Message: fmt.Sprintf("File %s uploaded successfully", fileName)})
+		fmt.Printf("%s Received file %s. You can find it at %s.\n", internal.Icons.Positive, fileName, location)
+	})
 
 	router.GET("/request", func(context *gin.Context) {
 		senderName := context.Query("senderName")
