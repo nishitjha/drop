@@ -29,7 +29,7 @@ func Launch() error {
 	viper.SetDefault("sharing.autoRenameExistingFiles", true)
 
 	viper.SetDefault("sharing.acceptTextSnippetsByDefault", false)
-	viper.SetDefault("sharing.autoCopyToClipboard", false)
+	viper.SetDefault("sharing.autoCopyToClipboard", true)
 
 	viper.SetDefault("sharing.advanced.enableTransferLog", true)
 	viper.SetDefault("sharing.advanced.logFilePath", filepath.Join(home, ".drop_history.log"))
