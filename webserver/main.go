@@ -8,7 +8,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gin-gonic/gin"
+	"github.com/nishitjha/drop/internal"
 	"github.com/spf13/viper"
+	"golang.design/x/clipboard"
 	//"github.com/ncruces/zenity"
 	//"github.com/sqweek/dialog"
 )
@@ -42,6 +44,57 @@ func Listen() {
 	go HandleRequests()
 
 	router.POST("/upload", func(context *gin.Context) {
+		isTextSnippet := context.GetHeader("X-TextSnippet") == "true"
+
+		if isTextSnippet {
+			copyToClipboard := viper.GetBool("sharing.autoCopyToClipboard")
+
+			if copyToClipboard {
+				err := clipboard.Init()
+				if err != nil {
+					fmt.Printf("%s Error initializing clipboard: %s \n", internal.Icons.Negative, err)
+					context.JSON(500, JSONresponse{Message: "Something went wrong."})
+					return
+				}
+
+				// paste the text snippet to the clipboard
+				bodyBytes, err := io.ReadAll(context.Request.Body)
+				if err != nil {
+					fmt.Printf("%s Error reading request body: %v\n", internal.Icons.Negative, err)
+					context.JSON(500, JSONresponse{Message: "Something went wrong."})
+					return
+				}
+
+				clipboard.Write(clipboard.FmtText, bodyBytes)
+				
+				fmt.Printf("%s The text snippet has been copied to your clipboard.\n", internal.Icons.Positive)
+				context.JSON(200, JSONresponse{Message: "Text snippet sent successfully."})
+				
+				return
+			}
+
+			//save to some txt file in the uploads folder with the current timestamp as the filename
+			timestamp := time.Now().Unix()
+			file, err := os.Create(fmt.Sprintf("../uploads/text_snippet_%d.txt", timestamp))
+			if err != nil {
+				fmt.Printf("%s Error creating text snippet file: %v\n", internal.Icons.Negative, err)
+				context.JSON(500, JSONresponse{Message: "Something went wrong."})
+				return
+			}
+			defer file.Close()
+
+			_, err = io.Copy(file, context.Request.Body)
+			if err != nil {
+				fmt.Printf("%s Error saving text snippet: %v\n", internal.Icons.Negative, err)
+				context.JSON(500, JSONresponse{Message: "Something went wrong."})
+				return
+			}
+
+			fmt.Printf("%s The text snippet has been saved to %s.\n", internal.Icons.Positive, file.Name())
+			context.JSON(200, JSONresponse{Message: "Text snippet sent successfully."})
+			return
+		}
+
         fileName := context.GetHeader("X-Filename")
         out, err := os.Create("../uploads/" + fileName)
         if err != nil {
@@ -61,7 +114,7 @@ func Listen() {
             return
         }
         context.JSON(200, JSONresponse{Message: fmt.Sprintf("File %s uploaded successfully", fileName)})
-        fmt.Printf("Received file %s.\n", fileName)
+        fmt.Printf("%sReceived file %s.\n", internal.Icons.Positive, fileName)
     })
 
 	router.GET("/request", func(context *gin.Context) {
@@ -100,7 +153,7 @@ func Listen() {
 
 	err := router.Run(fmt.Sprintf("0.0.0.0:%d", viper.GetInt("webserver.port")))
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("%s Error starting web server: %v\n", internal.Icons.Negative, err)
 	}
 }
 
@@ -121,6 +174,17 @@ func (m confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.answered = true
 			return m, tea.Quit
 		}
+		// Allow 'y' and 'n' keys for quick response
+		switch msg.String() {
+		case "y":
+			m.choice = true
+			m.answered = true
+			return m, tea.Quit
+		case "n":
+			m.choice = false
+			m.answered = true
+			return m, tea.Quit
+		}
 	}
 	return m, nil
 }
@@ -130,17 +194,17 @@ func (m confirmModel) View() string {
 		return ""
 	}
 
-	s := fmt.Sprintf("\n Do you wish to accept a %s sharing request from \"%s\"?\n", func() string {
+	s := fmt.Sprintf("\n Do you wish to accept a %s sharing request from \"%s\"?\n\n", func() string {
 		if m.req.TextMode {
 			return "text"
 		}
 		return "file"
 	}(), m.req.SenderName)
-	s += " Use the arrow keys to select an option and press enter to confirm. You have three minutes to respond.\n\n"
-
-	if m.req.FileName != "" {
-		s += fmt.Sprintf(" File name: %s\n", m.req.FileName)
-		s += fmt.Sprintf(" File size: %d bytes\n\n", m.req.FileSize)
+	s += " Use the arrow keys to select an option and press enter to confirm. \n You may also press the keys 'y' or 'n' to accept or decline respectively. \n\n"
+	s += " You have three minutes to respond. \n\n"
+ 	if m.req.FileName != "" {
+		s += fmt.Sprintf(" - File name: %s\n", m.req.FileName)
+		s += fmt.Sprintf(" - File size: %d bytes\n\n", m.req.FileSize)
 	}
 
 	if m.choice {

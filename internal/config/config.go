@@ -25,7 +25,7 @@ func Launch() error {
 	viper.SetDefault("sharing.rejectUntrustedDevices", false)
 	viper.SetDefault("sharing.autoRenameExistingFiles", true)
 
-	viper.SetDefault("sharing.acceptTextSnippets", true)
+	viper.SetDefault("sharing.acceptTextSnippetsByDefault", true)
 	viper.SetDefault("sharing.autoCopyToClipboard", true)
 
 	viper.SetDefault("sharing.advanced.enableTransferLog", true)
