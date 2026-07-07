@@ -1,8 +1,8 @@
 package config
 
 import (
-	"filepath"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/viper"
 )
