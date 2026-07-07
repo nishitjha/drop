@@ -294,6 +294,7 @@ var config = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(list, share, config)
+	share.Flags().StringP("text", "t", "", "Send a text snippet (as opposed to files).")
 }
 
 func Execute() {

@@ -31,9 +31,14 @@ func init() {
 	viper.SetDefault("sharing.advanced.enableTransferLog", true)
 	viper.SetDefault("sharing.advanced.logFilePath", filepath.Join(home, ".drop_history.log"))
 	
-	viper.SetDefault("sharing.folders.autoArchive", true)
-	viper.SetDefault("sharing.folders.archiveFormat", "zip") // or tar.gz
-	viper.SetDefault("sharing.folders.autoExtractOnReceipt", true)
+	viper.SetDefault("sharing.folders.archiveFormat", "zip") // or tar.gz or something else idk ask the user
+	viper.SetDefault("sharing.folders.compressionLevel", 0) // 0 is no compression, 9 is max compression.
+	// i personally think a lot of users are morons and must be informed that compression is a very CPU intensive task
+	// otherwise everyone's gonna think "omg yeah i wanna compress it cause that way the transfer will be faster" no you fucking clown
+	// at high internet speeds you should not compress at all because the bandwidth is not the bottleneck
+	// at low internet speeds i think compression is worth it so as to reduce the size being trasnferred over
+	// but idt any compression should be done by default so 0 it is 
+	viper.SetDefault("sharing.folders.autoExtractOnReceiving", true)
 
 	viper.SetDefault("discovery.instanceName", hostname)
 	viper.SetDefault("discovery.advanced.serviceName", "_drop._tcp")
