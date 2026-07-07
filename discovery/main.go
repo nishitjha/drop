@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	InstanceName = "Nishits-Machine"
+	InstanceName = "Nishits-Laptop"
 	ServiceName  = "_drop._tcp"
 	domain       = "local."
 	Port         = 3001

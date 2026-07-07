@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -43,7 +44,37 @@ func (progWriter *ProgressWriter) Write(p []byte) (n int, err error) {
 }
 
 
-func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program) error {
+func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program, textSnippet string) error {
+	
+	if textSnippet != "" {
+		httpClient := &http.Client{}
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), strings.NewReader(textSnippet))
+
+		if err != nil {
+			program.Send(doneMsg{Err: err})
+			return fmt.Errorf("%s Error creating request: %v", Icons.Negative, err)
+		}
+
+		// simply send the raw text snippet as the body of the request, and set a custom header to indicate that it's a text snippet
+		req.Header.Set("X-TextSnippet", "true")
+
+		response, err := httpClient.Do(req)
+		
+		if err != nil {
+			program.Send(doneMsg{Err: err})
+			return fmt.Errorf("%s Error sending text snippet: %v", Icons.Negative, err)
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode != http.StatusOK {
+			program.Send(doneMsg{Err: fmt.Errorf("Failed to send text snippet. Status code: %d", response.StatusCode)})
+			return nil
+		}
+		
+		program.Send(doneMsg{Message: fmt.Sprintf("%s The text snippet has been sent successfully to \"%s\".", Icons.Positive, deviceName)})
+		return nil
+	}
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		program.Send(doneMsg{Err: err})

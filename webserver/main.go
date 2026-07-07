@@ -22,6 +22,7 @@ type AuthRequest struct {
 	Response   chan bool
 	FileName   string
 	FileSize   int64
+	TextMode   bool
 }
 
 type confirmModel struct {
@@ -67,6 +68,7 @@ func Listen() {
 		senderUUID := context.Query("UUID")
 		fileName := context.Query("fileName")
 		fileSize := context.Query("fileSize")
+		textMode := context.Query("t") == "true"
 
 		answerChan := make(chan bool)
 
@@ -80,6 +82,7 @@ func Listen() {
 				fmt.Sscanf(fileSize, "%d", &size)
 				return size
 			}(),
+			TextMode: textMode,
 		}
 
 		select {
@@ -126,7 +129,12 @@ func (m confirmModel) View() string {
 		return ""
 	}
 
-	s := fmt.Sprintf("\n Do you wish to accept a sharing request from \"%s\"?\n", m.req.SenderName)
+	s := fmt.Sprintf("\n Do you wish to accept a %s sharing request from \"%s\"?\n", func() string {
+		if m.req.TextMode {
+			return "text"
+		}
+		return "file"
+	}(), m.req.SenderName)
 	s += " Use the arrow keys to select an option and press enter to confirm. You have three minutes to respond.\n\n"
 
 	if m.req.FileName != "" {

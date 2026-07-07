@@ -161,11 +161,15 @@ var list = &cobra.Command{
 	},
 }
 
+var textMode bool
+
 var share = &cobra.Command{
 	Use:     "share deviceName [file_path]",
 	Aliases: []string{"sh", "send"},
 	Short:   "Use drop [share/sh/send] {device_name} {file_path} to attempt streaming a file across to said device.",
+	Long:  "Use drop [share/sh/send] {device_name} {file_path} to attempt streaming a file across to said device. \n Use the -t or --text flag to share a text snippet instead of a file. \n Example: drop share -t {device_name} \"Hello, world!\"",
 	Run: func(cmd *cobra.Command, args []string) {
+
 		if len(args) == 0 {
 			fmt.Printf("%s You forgot to specify a device! Use \"drop ls\" to see a list of devices available for sharing.\n", internal.Icons.Information)
 			return
@@ -179,21 +183,6 @@ var share = &cobra.Command{
 		if len(devices) == 0 {
 			fmt.Printf("%s Couldn't find any devices on your network. Make sure they're running Drop and try again.\n", internal.Icons.Negative)
 			return
-		}
-
-		var fileInfo os.FileInfo
-		var err error
-		if len(args) > 1 {
-			if _, err := os.Stat(args[1]); os.IsNotExist(err) {
-				fmt.Printf("%s The file \"%s\" does not exist. Make sure you typed the absolute/relative path correctly and try again.\n", internal.Icons.Negative, args[1])
-				return
-			}
-
-			fileInfo, err = os.Stat(args[1])
-			if err != nil {
-				fmt.Printf("%s Error opening file \"%s\": %v\n", internal.Icons.Negative, args[1], err)
-				return
-			}
 		}
 
 		var targetDevice *discovery.Device
@@ -210,13 +199,79 @@ var share = &cobra.Command{
 			return
 		}
 
+		textMode, _ = cmd.Flags().GetBool("text")
+
+
+		if textMode {
+			var textSnippet string
+			if len(args) > 1 {
+				textSnippet = args[1]
+			} else {
+				fmt.Printf("%s You forgot to pass in the text! Use \"drop share --t {device_name} {text_snippet}\" to share said text snippet.\n", internal.Icons.Information)
+				return
+			}
+			fmt.Println(textSnippet)
+			result := internal.RunSpinner(fmt.Sprintf("Sent a text share request to \"%s\". The device has 3 minutes to accept it.", targetDevice.DeviceName), func() tea.Msg {
+			httpClient := &http.Client{}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+
+			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&t=%v&UUID=%s", targetDevice.Address, discovery.InstanceName, true, targetDevice.UUID)
+		
+		
+			req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+			if err != nil {
+				return internal.TaskResultMsg{Error: err}
+			}
+
+			response, err := httpClient.Do(req)
+			return internal.TaskResultMsg{Response: response, Error: err}
+		
+		})
+
+			if result.Error != nil {
+				fmt.Printf("%s The request timed out. Maybe they missed it? (either that or they hate you).\n", internal.Icons.Information)
+				return
+			}
+
+			defer result.Response.Body.Close() 
+
+			if result.Response.StatusCode == http.StatusOK {
+			fmt.Printf("%s Great success! \"%s\" accepted your text sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
+
+			internal.Launch(targetDevice.Address, targetDevice.DeviceName, "", textSnippet)
+		} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
+			fmt.Printf("%s What a fucking loser. \"%s\" declined your text sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)
+		}
+		
+			return
+		}
+	
+
+		var fileInfo os.FileInfo
+		var err error
+		if (len(args) > 1) {
+			if _, err := os.Stat(args[1]); os.IsNotExist(err) {
+				fmt.Printf("%s The file \"%s\" does not exist. Make sure you typed the absolute/relative path correctly and try again.\n", internal.Icons.Negative, args[1])
+				return
+			}
+
+			fileInfo, err = os.Stat(args[1])
+			if err != nil {
+				fmt.Printf("%s Error opening file \"%s\": %v\n", internal.Icons.Negative, args[1], err)
+				return
+			}
+		}
+
+
 		result := internal.RunSpinner(fmt.Sprintf("Sent a share request to \"%s\". The device has 3 minutes to accept it.", targetDevice.DeviceName), func() tea.Msg {
 			httpClient := &http.Client{}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
 
-			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, discovery.InstanceName, targetDevice.UUID, func() string {
+			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&t=%v&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, discovery.InstanceName, false, targetDevice.UUID, func() string {
 				if len(args) > 1 {
 					return fileInfo.Name()
 				}
@@ -249,7 +304,7 @@ var share = &cobra.Command{
 
 			if len(args) > 1 {
 				// Call Launch directly for CLI arguments
-				internal.Launch(targetDevice.Address, targetDevice.DeviceName, args[1])
+				internal.Launch(targetDevice.Address, targetDevice.DeviceName, args[1], "")
 				return
 			}
 
@@ -272,7 +327,7 @@ var share = &cobra.Command{
 				return
 			}
 
-			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedModel.selectedFile)
+			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedModel.selectedFile, "")
 
 		} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
 			fmt.Printf("%s What a fucking loser. \"%s\" declined your sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)
@@ -281,20 +336,20 @@ var share = &cobra.Command{
 }
 
 var config = &cobra.Command{
-	Use:   "config [setting] [newValue]",
+	Use:     "config [setting] [newValue]",
 	Aliases: []string{"settings", "con"},
-	Short: "Use drop [config/settings/con] to view Drop's configuration. Use drop [config/settings/con] {setting} {newValue} to change a setting.",
+	Short:   "Use drop [config/settings/con] to view Drop's configuration. Use drop [config/settings/con] {setting} {newValue} to change a setting.",
 	Run: func(cmd *cobra.Command, args []string) {
 		// viper config logic goes here
 		if len(args) == 0 {
-			
+
 		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(list, share, config)
-	share.Flags().StringP("text", "t", "", "Send a text snippet (as opposed to files).")
+	share.Flags().BoolVarP(&textMode, "text", "t", false, "Share a text snippet instead of a file.")
 }
 
 func Execute() {
