@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -14,12 +15,14 @@ func Launch() error {
 	viper.AddConfigPath(home)
 	viper.SetConfigType("yaml")
 	viper.SetConfigName(".drop")
+	configFile := filepath.Join(home, ".drop.yaml")
+	viper.SetConfigFile(configFile)
 
 	viper.SetDefault("webserver.port", 3000)
-	
+
 	// default receive directory is ~/Downloads/Drop
-	// but i'm wondering if one should have the option to have the file saved to the current working directory 
-	viper.SetDefault("sharing.receiveDir", filepath.Join(home, "Downloads", "Drop")) 
+	// but i'm wondering if one should have the option to have the file saved to the current working directory
+	viper.SetDefault("sharing.receiveDir", filepath.Join(home, "Downloads", "Drop"))
 	viper.SetDefault("sharing.isDiscoverable", true)
 	viper.SetDefault("sharing.askReceiveDirEverytime", false)
 	viper.SetDefault("sharing.trustAllDevices", false)
@@ -33,7 +36,7 @@ func Launch() error {
 	viper.SetDefault("sharing.advanced.enableTransferLog", true)
 	viper.SetDefault("sharing.advanced.logFilePath", filepath.Join(home, ".drop_history.log"))
 
-	viper.SetDefault("sharing.folders.archiveFormat", "zip") // or tar.gz 
+	viper.SetDefault("sharing.folders.archiveFormat", "zip") // or tar.gz
 	viper.SetDefault("sharing.folders.compressionLevel", 0)  // 0 is no compression, 1 is best speed w minimal compression and so on till 3
 	// most users are fucking morons and will probably think "omg yeah i wanna compress my files so that they take lesser time to stream across"
 	// but compression is very CPU intensive and will actually slow it down for most users
@@ -56,11 +59,13 @@ func Launch() error {
 	viper.SetDefault("network.maxBandwidthMBps", 0) //0 is unlimited
 
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok || errors.Is(err, os.ErrNotExist) {
+			if err := viper.SafeWriteConfig(); err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
-		// no config file yet
-		}	
-		return nil
 	}
-	
+	return nil
+}
