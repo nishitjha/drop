@@ -305,7 +305,6 @@ var share = &cobra.Command{
 			fmt.Printf("%s Great success! \"%s\" accepted your sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
 
 			if len(args) > 1 {
-				// figure out whether it's a directory or a file
 				info, err := os.Stat(args[1])
 				if err != nil {
 					fmt.Printf("%s Error opening file/directory \"%s\": %v\n", internal.Icons.Negative, args[1], err)
@@ -350,7 +349,6 @@ var share = &cobra.Command{
 				return
 			}
 
-			// figure out whether it's a file or a directory
 			if info.IsDir() {
 				archive.ArchiveDirectoryToZip(selectedModel.selectedFile)
 				return
