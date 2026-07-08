@@ -3,10 +3,7 @@ package discovery
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/grandcat/zeroconf"
@@ -61,7 +58,7 @@ func (cache *Cache) List() (Devices map[string]Device) {
 	return cache.devices
 }
 
-func LaunchService() {
+func LaunchService() *zeroconf.Server {
 	server, err := zeroconf.Register(
 		InstanceName,
 		ServiceName,
@@ -75,15 +72,9 @@ func LaunchService() {
 		fmt.Println(err)
 	}
 
-	defer server.Shutdown()
-
 	fmt.Printf("%s Broadcasting as %s (service: %s) \n", internal.Icons.Positive, InstanceName, ServiceName)
 
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-	<-sig
-
-	fmt.Println("Exiting..")
+	return server
 }
 
 func ServiceBrowser() {
@@ -95,7 +86,7 @@ func ServiceBrowser() {
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func(results <-chan *zeroconf.ServiceEntry) {
 		for entry := range results {
-
+			
 			if entry.Instance == InstanceName {
 				continue //to ignore one's own broadcasts
 			}

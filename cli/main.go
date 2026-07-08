@@ -91,7 +91,7 @@ var rootCmd = &cobra.Command{
 	Use:   "drop",
 	Short: "Start the Drop discovery and broadcast daemon.",
 	Run: func(cmd *cobra.Command, args []string) {
-		go discovery.LaunchService()
+		server := discovery.LaunchService()
 		discovery.ServiceBrowser()
 
 		go webserver.Listen()
@@ -101,6 +101,12 @@ var rootCmd = &cobra.Command{
 
 		<-sig
 		fmt.Println("Au revoir!")
+		
+		if server != nil {
+			server.Shutdown()
+		}
+		time.Sleep(200 * time.Millisecond)
+
 		os.Exit(0)
 	},
 }
@@ -113,7 +119,7 @@ var list = &cobra.Command{
 		var devices map[string]discovery.Device
 		internal.RunSpinner("Scanning for devices...", func() tea.Msg {
 			discovery.ServiceBrowser()
-			time.Sleep(2 * time.Second)
+			time.Sleep(5 * time.Second)
 			devices = discovery.Devices.List()
 			return internal.TaskResultMsg{}
 		})
