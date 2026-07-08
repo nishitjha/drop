@@ -16,6 +16,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/nishitjha/drop/discovery"
 	"github.com/nishitjha/drop/internal"
+	"github.com/nishitjha/drop/internal/archive"
 	"github.com/nishitjha/drop/webserver"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -69,7 +70,7 @@ func (m model) View() tea.View {
 	}
 
 	var s strings.Builder
-	s.WriteString("\nPick a file for sharing. Use the arrow keys or your mouse wheel to scroll and navigate. \nPress enter to choose the selected file.\n\n")
+	s.WriteString("\nPick a file or directory for sharing. Use the arrow keys or your mouse wheel to scroll and navigate. \nPress enter to choose the selected file.\n\n")
 
 	if m.err != nil {
 		s.WriteString(m.filepicker.Styles.DisabledFile.Render(m.err.Error()))
@@ -304,27 +305,54 @@ var share = &cobra.Command{
 			fmt.Printf("%s Great success! \"%s\" accepted your sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
 
 			if len(args) > 1 {
-				// Call Launch directly for CLI arguments
+				// figure out whether it's a directory or a file
+				info, err := os.Stat(args[1])
+				if err != nil {
+					fmt.Printf("%s Error opening file/directory \"%s\": %v\n", internal.Icons.Negative, args[1], err)
+					return
+				}
+
+				if info.IsDir() {
+					archive.ArchiveDirectoryToZip(args[1])
+					return
+				}
+
 				internal.Launch(targetDevice.Address, targetDevice.DeviceName, args[1], "")
 				return
 			}
 
 			picker := filepicker.New()
+			picker.DirAllowed = true
+			picker.FileAllowed = true
 
 			homeDir, _ := os.UserHomeDir()
 			picker.CurrentDirectory = homeDir
 			pickerModel := model{filepicker: picker}
 			p := tea.NewProgram(pickerModel)
 			finalModel, err := p.Run()
+
+
 			if err != nil {
-				fmt.Printf("%s Error running the file picker: %v\n", internal.Icons.Negative, err)
-				fmt.Printf("%s Maybe you'll have some luck passing in the file path in the command itself? Use \"drop share --help\" to see how to do that.\n", internal.Icons.Information)
+				fmt.Printf("%s Error running the file/directory picker: %v\n", internal.Icons.Negative, err)
+				fmt.Printf("%s Maybe you'll have some luck passing in the file/directory path in the command itself? Use \"drop share --help\" to see how to do that.\n", internal.Icons.Information)
 				return
 			}
 
 			selectedModel := finalModel.(model)
 			if selectedModel.selectedFile == "" {
-				fmt.Println("No file selected for sharing. Exiting Drop.")
+				fmt.Println("No file/directory selected for sharing. Exiting Drop.")
+				return
+			}
+
+			info, err := os.Stat(selectedModel.selectedFile)
+			if err != nil {
+				fmt.Printf("%s Error opening file/directory \"%s\": %v\n", internal.Icons.Negative, selectedModel.selectedFile, err)
+				return
+			}
+
+			// figure out whether it's a file or a directory
+			if info.IsDir() {
+				archive.ArchiveDirectoryToZip(selectedModel.selectedFile)
 				return
 			}
 
