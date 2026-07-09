@@ -100,7 +100,7 @@ var rootCmd = &cobra.Command{
 		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 
 		<-sig
-		fmt.Println("%s Au revoir!", internal.Icons.Bye)
+		fmt.Printf("%s Au revoir!", internal.Icons.Bye)
 		
 		if server != nil {
 			server.Shutdown()
