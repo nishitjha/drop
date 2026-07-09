@@ -7,6 +7,7 @@ type IconConfig struct {
 	Negative    string
 	Information string
 	Warning string
+	Bye string
 }
 
 var Icons = IconConfig{
@@ -14,4 +15,5 @@ var Icons = IconConfig{
 	Negative:    lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5C57")).Render("✖"),
 	Information: lipgloss.NewStyle().Foreground(lipgloss.Color("#3b62f1")).Render("?"),
 	Warning:     lipgloss.NewStyle().Foreground(lipgloss.Color("#FFAF00")).Render("⚠"),
+	Bye:         lipgloss.NewStyle().Render("👋"),
 }

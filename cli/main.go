@@ -100,7 +100,7 @@ var rootCmd = &cobra.Command{
 		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 
 		<-sig
-		fmt.Println("Au revoir!")
+		fmt.Println("%s Au revoir!", internal.Icons.Bye)
 		
 		if server != nil {
 			server.Shutdown()
@@ -275,6 +275,11 @@ var share = &cobra.Command{
 				fmt.Printf("%s Error opening file or directory \"%s\": %v\n", internal.Icons.Negative, args[1], err)
 				return
 			}
+
+			if fileInfo.IsDir() && !dirMode {
+				fmt.Printf("%s The path specified points to a directory. If this was intended, you must use the --dir/d flag.\n", internal.Icons.Information)
+				return
+			}
 		}
 
 
@@ -289,10 +294,10 @@ var share = &cobra.Command{
 					return fileInfo.Name()
 				}
 				return ""
-			}(), func() any {
+			}(), func() int64 {
 				if len(args) > 1 {
 					if fileInfo.IsDir() {
-						return "Could not compute" 
+						return 0
 					}
 					return fileInfo.Size()
 				}

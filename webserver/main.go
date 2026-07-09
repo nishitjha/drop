@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gin-gonic/gin"
 	"github.com/nishitjha/drop/internal"
+	"github.com/nishitjha/drop/internal/archive"
 	"github.com/spf13/viper"
 	"golang.design/x/clipboard"
 	//"github.com/ncruces/zenity"
@@ -175,6 +176,67 @@ func Listen() {
 		}
 	})
 
+	router.GET("/archive", func(context *gin.Context) {
+		receiveDir := viper.GetString("sharing.receiveDir")
+		askEverytime := viper.GetBool("sharing.askReceiveDirEverytime")
+		autoExtract := viper.GetBool("sharing.folders.autoExtractOnReceive")
+		format := context.Query("format")
+		
+		fileName := context.GetHeader("X-Filename")
+
+		if askEverytime {
+			// i'll ask them i promise
+		}
+
+		if format != "zip" && format != "tar.gz" {
+			context.JSON(400, JSONresponse{Message: "Invalid format. Use 'zip' or 'tar.gz'."})
+			return
+		}
+
+		if format == "zip" {
+			// make sure the receiveDir exists (but MkdirALl will not overwrite it if it already exists)
+			err := os.MkdirAll(receiveDir, os.ModePerm)
+			if err != nil {
+				fmt.Printf("%s Error creating directory: %v\n", internal.Icons.Negative, err)
+				context.JSON(500, JSONresponse{Message: "Something went wrong."})
+				return
+			}
+
+			archivePath := filepath.Join(receiveDir, fileName)
+
+			out, err := os.Create(archivePath)
+			if err != nil {
+				fmt.Printf("%s Error creating archive file: %v\n", internal.Icons.Negative, err)
+			}
+
+			_, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
+			if err != nil {
+				fmt.Printf("%s Error saving archive: %v\n", internal.Icons.Negative, err)
+			}
+
+			if autoExtract {
+				err := archive.ExtractArchive(archivePath, receiveDir)
+				if err != nil {
+					fmt.Printf("%s Error extracting archive: %v\n", internal.Icons.Negative, err)
+				} else {
+					fmt.Printf("%s Successfully extracted archived folder to %s.\n", internal.Icons.Positive, receiveDir)
+				}
+				
+
+				context.JSON(200, JSONresponse{Message: fmt.Sprintf("Archive %s uploaded and extracted successfully", fileName)})
+				return
+			}
+
+			fmt.Printf("%s Received archive %s. You can find it at %s.\n", internal.Icons.Positive, fileName, archivePath)
+			context.JSON(200, JSONresponse{Message: fmt.Sprintf("Archive %s uploaded successfully", fileName)})
+			
+			return
+		}
+
+
+		
+	})
+
 	err := router.Run(fmt.Sprintf("0.0.0.0:%d", viper.GetInt("webserver.port")))
 	if err != nil {
 		fmt.Printf("%s Error starting web server: %v\n", internal.Icons.Negative, err)
@@ -277,4 +339,8 @@ func HandleRequests() {
 			req.Response <- false
 		}
 	}
+}
+
+func ExtractZip() {
+
 }

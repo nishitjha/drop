@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"runtime"
 
 	//"archive/tar"
 	"compress/flate"
@@ -14,10 +15,6 @@ import (
 	"github.com/nishitjha/drop/internal"
 	"github.com/spf13/viper"
 )
-
-type Level struct {
-	
-}
 
 func getCompressionLevel(level int) int {
 	switch level {
@@ -35,6 +32,12 @@ func getCompressionLevel(level int) int {
 }
 
 func Execute(sourceDir string, targetAddress string, targetDeviceName string) {
+	archiveFormat := viper.GetString("sharing.folders.archiveFormat")
+
+	if archiveFormat == "zip" && (runtime.GOOS == "linux" || runtime.GOOS == "darwin") {
+		fmt.Printf("%s Using the zip archive format in a Unix environment. Consider switching to tar.gz for greatly improved speeds. Use \"drop config sharing.folders.archiveFormat\" to learn more.\n", internal.Icons.Warning)
+	}
+
 	pr, pw := io.Pipe()
 
 	go func () {
@@ -49,7 +52,7 @@ func Execute(sourceDir string, targetAddress string, targetDeviceName string) {
 		pw.Close()
 	}()
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/archive", targetAddress), pr)
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/archive?format=%s", targetAddress, archiveFormat), pr)
 	if err != nil {
 		fmt.Printf("%s Error creating request to send directory \"%s\" to device \"%s\": %v.\n", internal.Icons.Negative, sourceDir, targetDeviceName, err)
 		return
@@ -106,7 +109,7 @@ func ArchiveDirectoryToZip(sourceDir string, destination io.Writer) error {
 	})
 	
 	intelligentArchive := viper.GetBool("sharing.folders.intelligentArchive")
-	fmt.Printf("%[1]s %[2]s intelligent compression. Use \"drop config sharing.folders.intelligentArchive\" to learn more.\n", func() string {
+	fmt.Printf("%[1]s %[2]s intelligent archiving. Use \"drop config sharing.folders.intelligentArchive\" to learn more.\n", func() string {
 		if intelligentArchive {
 			return internal.Icons.Positive
 		}
