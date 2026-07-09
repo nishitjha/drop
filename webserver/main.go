@@ -27,6 +27,7 @@ type AuthRequest struct {
 	FileName   string
 	FileSize   int64
 	TextMode   bool
+	DirectoryMode bool
 }
 
 type confirmModel struct {
@@ -144,6 +145,7 @@ func Listen() {
 		fileName := context.Query("fileName")
 		fileSize := context.Query("fileSize")
 		textMode := context.Query("t") == "true"
+		directoryMode := context.Query("d") == "true"
 
 		answerChan := make(chan bool)
 
@@ -158,6 +160,7 @@ func Listen() {
 				return size
 			}(),
 			TextMode: textMode,
+			DirectoryMode: directoryMode,
 		}
 
 		select {
@@ -218,14 +221,26 @@ func (m confirmModel) View() string {
 	s := fmt.Sprintf("\n Do you wish to accept a %s sharing request from \"%s\"?\n\n", func() string {
 		if m.req.TextMode {
 			return "text"
+		} else if m.req.DirectoryMode {
+			return "folder"
 		}
 		return "file"
 	}(), m.req.SenderName)
 	s += " Use the arrow keys to select an option and press enter to confirm. \n You may also press the keys 'y' or 'n' to accept or decline respectively. \n\n"
 	s += " You have three minutes to respond. \n\n"
  	if m.req.FileName != "" {
-		s += fmt.Sprintf(" - File name: %s\n", m.req.FileName)
-		s += fmt.Sprintf(" - File size: %d bytes\n\n", m.req.FileSize)
+		s += fmt.Sprintf(" - %s name: %s\n", func() string {
+			if m.req.DirectoryMode {
+				return "Folder"
+			}
+			return "File"
+		}(), m.req.FileName)
+		s += fmt.Sprintf(" - %s Size: %d bytes\n\n", func() string {
+			if m.req.DirectoryMode {
+				return "Folder"
+			}
+			return "File"
+		}(), m.req.FileSize)
 	}
 
 	if m.choice {

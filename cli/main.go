@@ -119,7 +119,7 @@ var list = &cobra.Command{
 		var devices map[string]discovery.Device
 		internal.RunSpinner("Scanning for devices...", func() tea.Msg {
 			discovery.ServiceBrowser()
-			time.Sleep(5 * time.Second)
+			time.Sleep(2 * time.Second)
 			devices = discovery.Devices.List()
 			return internal.TaskResultMsg{}
 		})
@@ -170,6 +170,7 @@ var list = &cobra.Command{
 }
 
 var textMode bool
+var dirMode bool
 
 var share = &cobra.Command{
 	Use:     "share deviceName [file_path]",
@@ -208,9 +209,13 @@ var share = &cobra.Command{
 		}
 
 		textMode, _ = cmd.Flags().GetBool("text")
-
+		dirMode, _ = cmd.Flags().GetBool("dir")
 
 		if textMode {
+			if dirMode {
+				fmt.Printf("%s You cannot use both the --text and --dir flags at the same time.\n", internal.Icons.Negative)
+				return
+			}
 			var textSnippet string
 			if len(args) > 1 {
 				textSnippet = args[1]
@@ -261,13 +266,13 @@ var share = &cobra.Command{
 		var err error
 		if (len(args) > 1) {
 			if _, err := os.Stat(args[1]); os.IsNotExist(err) {
-				fmt.Printf("%s The file \"%s\" does not exist. Make sure you typed the absolute/relative path correctly and try again.\n", internal.Icons.Negative, args[1])
+				fmt.Printf("%s The file or directory \"%s\" does not exist. Make sure you typed the absolute/relative path correctly and try again.\n", internal.Icons.Negative, args[1])
 				return
 			}
 
 			fileInfo, err = os.Stat(args[1])
 			if err != nil {
-				fmt.Printf("%s Error opening file \"%s\": %v\n", internal.Icons.Negative, args[1], err)
+				fmt.Printf("%s Error opening file or directory \"%s\": %v\n", internal.Icons.Negative, args[1], err)
 				return
 			}
 		}
@@ -279,13 +284,16 @@ var share = &cobra.Command{
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
 
-			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&t=%v&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, discovery.InstanceName, false, targetDevice.UUID, func() string {
+			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&t=%v&d=%v&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, discovery.InstanceName, false, fileInfo.IsDir(), targetDevice.UUID, func() string {
 				if len(args) > 1 {
 					return fileInfo.Name()
 				}
 				return ""
-			}(), func() int64 {
+			}(), func() any {
 				if len(args) > 1 {
+					if fileInfo.IsDir() {
+						return "Could not compute" 
+					}
 					return fileInfo.Size()
 				}
 				return 0
@@ -313,12 +321,12 @@ var share = &cobra.Command{
 			if len(args) > 1 {
 				info, err := os.Stat(args[1])
 				if err != nil {
-					fmt.Printf("%s Error opening file/directory \"%s\": %v\n", internal.Icons.Negative, args[1], err)
+					fmt.Printf("%s Error opening the file or directory \"%s\": %v\n", internal.Icons.Negative, args[1], err)
 					return
 				}
 
 				if info.IsDir() {
-					archive.ArchiveDirectoryToZip(args[1])
+					archive.Execute(args[1], targetDevice.Address, targetDevice.DeviceName)
 					return
 				}
 
@@ -327,8 +335,8 @@ var share = &cobra.Command{
 			}
 
 			picker := filepicker.New()
-			picker.DirAllowed = true
-			picker.FileAllowed = true
+			picker.DirAllowed = dirMode
+			picker.FileAllowed = !dirMode
 
 			homeDir, _ := os.UserHomeDir()
 			picker.CurrentDirectory = homeDir
@@ -338,25 +346,45 @@ var share = &cobra.Command{
 
 
 			if err != nil {
-				fmt.Printf("%s Error running the file/directory picker: %v\n", internal.Icons.Negative, err)
-				fmt.Printf("%s Maybe you'll have some luck passing in the file/directory path in the command itself? Use \"drop share --help\" to see how to do that.\n", internal.Icons.Information)
+				fmt.Printf("%s Error running the %s picker: %v\n", internal.Icons.Negative, func() string {
+					if dirMode {
+						return "directory"
+					}
+					return "file"
+				}(), err)
+				fmt.Printf("%s Maybe you'll have some luck passing in the %s path in the command itself? Use \"drop share --help\" to see how to do that.\n", internal.Icons.Information, func() string {
+					if dirMode {
+						return "directory"
+					}
+					return "file"
+				}())
 				return
 			}
 
 			selectedModel := finalModel.(model)
 			if selectedModel.selectedFile == "" {
-				fmt.Println("No file/directory selected for sharing. Exiting Drop.")
+				fmt.Printf("No %s selected for sharing. Exiting Drop.\n", func() string {
+					if dirMode {
+						return "directory"
+					}
+					return "file"
+				}())
 				return
 			}
 
 			info, err := os.Stat(selectedModel.selectedFile)
 			if err != nil {
-				fmt.Printf("%s Error opening file/directory \"%s\": %v\n", internal.Icons.Negative, selectedModel.selectedFile, err)
+				fmt.Printf("%s Error opening the %s \"%s\": %v\n", internal.Icons.Negative, func() string {
+					if dirMode {
+						return "directory"
+					}
+					return "file"
+				}(), selectedModel.selectedFile, err)
 				return
 			}
 
 			if info.IsDir() {
-				archive.ArchiveDirectoryToZip(selectedModel.selectedFile)
+				archive.Execute(selectedModel.selectedFile, targetDevice.Address, targetDevice.DeviceName)
 				return
 			}
 
@@ -390,6 +418,7 @@ var config = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(list, share, config)
 	share.Flags().BoolVarP(&textMode, "text", "t", false, "Share a text snippet instead of a file.")
+	share.Flags().BoolVarP(&dirMode, "dir", "d", false, "Share an entire directory instead of a file.")
 }
 
 func Execute() {

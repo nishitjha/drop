@@ -6,11 +6,12 @@ type IconConfig struct {
 	Positive    string
 	Negative    string
 	Information string
+	Warning string
 }
 
-// Get the styled icons using Lip Gloss
 var Icons = IconConfig{
 	Positive:    lipgloss.NewStyle().Foreground(lipgloss.Color("#02BA80")).Render("✔"),
 	Negative:    lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5C57")).Render("✖"),
-	Information: lipgloss.NewStyle().Foreground(lipgloss.Color("#FFAF00")).Render("?"),
+	Information: lipgloss.NewStyle().Foreground(lipgloss.Color("#3b62f1")).Render("?"),
+	Warning:     lipgloss.NewStyle().Foreground(lipgloss.Color("#FFAF00")).Render("⚠"),
 }
