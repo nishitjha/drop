@@ -1,6 +1,10 @@
 package internal
 
-import "charm.land/lipgloss/v2"
+import (
+	"fmt"
+
+	"charm.land/lipgloss/v2"
+)
 
 type IconConfig struct {
 	Positive    string
@@ -18,4 +22,16 @@ var Icons = IconConfig{
 	Warning:     lipgloss.NewStyle().Foreground(lipgloss.Color("#FFAF00")).Render("⚠"),
 	Bye:         lipgloss.NewStyle().Render("👋"),
 	Fact: 	  lipgloss.NewStyle().Foreground(lipgloss.Color("#3b62f1")).Render("💡"),
+}
+
+func FormatBytes(b int64) string {
+    if b < 1000 {
+        return fmt.Sprintf("%d B", b)
+    }
+    div, exp := int64(1000), 0
+    for n := b / 1000; n >= 1000; n /= 1000 {
+        div *= 1000
+        exp++
+    }
+    return fmt.Sprintf("%.2f %cB.", float64(b)/float64(div), "KMGTPE"[exp])
 }

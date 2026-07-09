@@ -297,12 +297,17 @@ func (m confirmModel) View() string {
 			}
 			return "File"
 		}(), m.req.FileName)
-		s += fmt.Sprintf(" - %s Size: %d bytes\n\n", func() string {
+		s += fmt.Sprintf(" - %s size: %s\n\n", func() string {
 			if m.req.DirectoryMode {
 				return "Folder"
 			}
 			return "File"
-		}(), m.req.FileSize)
+		}(), func() string {
+			if m.req.DirectoryMode {
+				return "unknown"
+			}
+			return internal.FormatBytes(m.req.FileSize)
+		}())
 	}
 
 	if m.choice {
@@ -339,8 +344,4 @@ func HandleRequests() {
 			req.Response <- false
 		}
 	}
-}
-
-func ExtractZip() {
-
 }

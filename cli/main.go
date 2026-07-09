@@ -277,7 +277,12 @@ var share = &cobra.Command{
 			}
 
 			if fileInfo.IsDir() && !dirMode {
-				fmt.Printf("%s The path specified points to a directory. If this was intended, you must use the --dir/d flag.\n", internal.Icons.Information)
+				fmt.Printf("%s The path specified points to a directory. If you intend to share a folder, you must use the --dir/d flag.\n", internal.Icons.Information)
+				return
+			}
+
+			if !fileInfo.IsDir() && dirMode {
+				fmt.Printf("%s The path specified points to a file. If you intend to share a file, you must not use the --dir/d flag.\n", internal.Icons.Information)
 				return
 			}
 		}
