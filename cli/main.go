@@ -289,7 +289,7 @@ var share = &cobra.Command{
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
 
-			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&t=%v&d=%v&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, discovery.InstanceName, false, fileInfo.IsDir(), targetDevice.UUID, func() string {
+			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&t=%v&d=%v&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, discovery.InstanceName, false, dirMode, targetDevice.UUID, func() string {
 				if len(args) > 1 {
 					return fileInfo.Name()
 				}

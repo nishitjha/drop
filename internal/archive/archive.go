@@ -102,7 +102,7 @@ func ArchiveDirectoryToZip(sourceDir string, destination io.Writer) error {
 	configLevel := viper.GetInt("sharing.folders.compressionLevel")
 	compLevel := getCompressionLevel(configLevel)
 
-	fmt.Printf("Using compression level: %d\n", compLevel)
+	fmt.Printf("%s Using compression level: %d.\n", internal.Icons.Fact, compLevel)
 
 	zipWriter.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
 		return flate.NewWriter(out, compLevel)
