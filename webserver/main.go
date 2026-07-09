@@ -176,7 +176,7 @@ func Listen() {
 		}
 	})
 
-	router.GET("/archive", func(context *gin.Context) {
+	router.POST("/archive", func(context *gin.Context) {
 		receiveDir := viper.GetString("sharing.receiveDir")
 		askEverytime := viper.GetBool("sharing.askReceiveDirEverytime")
 		autoExtract := viper.GetBool("sharing.folders.autoExtractOnReceive")
