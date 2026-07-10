@@ -215,7 +215,7 @@ func Listen() {
 				fmt.Printf("%s Error saving archive: %v\n", internal.Icons.Negative, err)
 			}
 			out.Close()
-			
+
 			if autoExtract {
 				err := archive.ExtractArchive(archivePath, receiveDir, fileName)
 				if err != nil {
@@ -228,6 +228,13 @@ func Listen() {
 				
 
 				context.JSON(200, JSONresponse{Message: fmt.Sprintf("Archive %s uploaded and extracted successfully", fileName)})
+
+				// delete the archive after extraction
+				err = os.Remove(archivePath)
+				if err != nil {
+					fmt.Printf("%s Could not delete the archive after extraction (not fatal). Try deleting it yourself.\n", internal.Icons.Warning)
+					return
+				}
 				return
 			}
 
