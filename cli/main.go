@@ -22,70 +22,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-type model struct {
-	filepicker   filepicker.Model
-	selectedFile string
-	quitting     bool
-	err          error
-}
-
-type clearErrorMsg struct{}
-
-func clearErrorAfter(t time.Duration) tea.Cmd {
-	return tea.Tick(t, func(_ time.Time) tea.Msg {
-		return clearErrorMsg{}
-	})
-}
-
-func (m model) Init() tea.Cmd {
-	return m.filepicker.Init()
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			m.quitting = true
-			return m, tea.Quit
-		}
-	case clearErrorMsg:
-		m.err = nil
-	}
-
-	var cmd tea.Cmd
-	m.filepicker, cmd = m.filepicker.Update(msg)
-
-	if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
-		m.selectedFile = path
-		return m, tea.Quit
-	}
-
-	return m, cmd
-}
-
-func (m model) View() tea.View {
-	if m.quitting {
-		return tea.NewView("")
-	}
-
-	var s strings.Builder
-	s.WriteString("\nPick a file or directory for sharing. Use the arrow keys or your mouse wheel to scroll and navigate. \nPress enter to choose the selected file.\n\n")
-
-	if m.err != nil {
-		s.WriteString(m.filepicker.Styles.DisabledFile.Render(m.err.Error()))
-	} else if m.selectedFile == "" {
-		s.WriteString("Pick a file:")
-	} else {
-		s.WriteString("Selected file: " + m.filepicker.Styles.Selected.Render(m.selectedFile))
-	}
-
-	s.WriteString("\n\n" + m.filepicker.View() + "\n")
-
-	v := tea.NewView(s.String())
-	v.AltScreen = true
-	return v
-}
 
 var rootCmd = &cobra.Command{
 	Use:   "drop",
@@ -223,7 +159,6 @@ var share = &cobra.Command{
 				fmt.Printf("%s You forgot to pass in the text! Use \"drop share --t {device_name} {text_snippet}\" to share said text snippet.\n", internal.Icons.Information)
 				return
 			}
-			fmt.Println(textSnippet)
 			result := internal.RunSpinner(fmt.Sprintf("Sent a text share request to \"%s\". The device has 3 minutes to accept it.", targetDevice.DeviceName), func() tea.Msg {
 			httpClient := &http.Client{}
 
@@ -350,7 +285,7 @@ var share = &cobra.Command{
 
 			homeDir, _ := os.UserHomeDir()
 			picker.CurrentDirectory = homeDir
-			pickerModel := model{filepicker: picker}
+			pickerModel := internal.FileModel{Filepicker: picker, DirMode: dirMode}
 			p := tea.NewProgram(pickerModel)
 			finalModel, err := p.Run()
 
@@ -371,8 +306,8 @@ var share = &cobra.Command{
 				return
 			}
 
-			selectedModel := finalModel.(model)
-			if selectedModel.selectedFile == "" {
+			selectedModel := finalModel.(internal.FileModel)
+			if selectedModel.SelectedFile == "" {
 				fmt.Printf("No %s selected for sharing. Exiting Drop.\n", func() string {
 					if dirMode {
 						return "directory"
@@ -382,23 +317,23 @@ var share = &cobra.Command{
 				return
 			}
 
-			info, err := os.Stat(selectedModel.selectedFile)
+			info, err := os.Stat(selectedModel.SelectedFile)
 			if err != nil {
 				fmt.Printf("%s Error opening the %s \"%s\": %v\n", internal.Icons.Negative, func() string {
 					if dirMode {
 						return "directory"
 					}
 					return "file"
-				}(), selectedModel.selectedFile, err)
+				}(), selectedModel.SelectedFile, err)
 				return
 			}
 
 			if info.IsDir() {
-				archive.Execute(selectedModel.selectedFile, targetDevice.Address, targetDevice.DeviceName)
+				archive.Execute(selectedModel.SelectedFile, targetDevice.Address, targetDevice.DeviceName)
 				return
 			}
 
-			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedModel.selectedFile, "")
+			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedModel.SelectedFile, "")
 
 		} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
 			fmt.Printf("%s What a fucking loser. \"%s\" declined your sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)

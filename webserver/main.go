@@ -282,11 +282,11 @@ func (m confirmModel) View() string {
 
 	s := fmt.Sprintf("\n Do you wish to accept a %s sharing request from \"%s\"?\n\n", func() string {
 		if m.req.TextMode {
-			return "text"
+			return internal.TextStyle.Render("text")
 		} else if m.req.DirectoryMode {
-			return "folder"
+			return internal.FolderStyle.Render("folder")
 		}
-		return "file"
+		return internal.FileStyle.Render("file")
 	}(), m.req.SenderName)
 	s += " Use the arrow keys to select an option and press enter to confirm. \n You may also press the keys 'y' or 'n' to accept or decline respectively. \n\n"
 	s += " You have three minutes to respond. \n\n"
@@ -337,10 +337,10 @@ func HandleRequests() {
 		fm := finalModel.(confirmModel)
 
 		if fm.answered && fm.choice {
-			fmt.Printf("Accepted sharing request from \"%s\".\n", req.SenderName)
+			fmt.Printf("%s Accepted sharing request from \"%s\".\n", internal.Icons.Positive, req.SenderName)
 			req.Response <- true
 		} else {
-			fmt.Printf("Declined sharing request from \"%s\".\n", req.SenderName)
+			fmt.Printf("%s Declined sharing request from \"%s\".\n", internal.Icons.Negative, req.SenderName)
 			req.Response <- false
 		}
 	}

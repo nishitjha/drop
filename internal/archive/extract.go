@@ -76,13 +76,20 @@ func ExtractArchive(archivePath string, destinationDir string, dirName string) e
 	}
 
     finalPath := filepath.Join(destinationDir, dirName)
-	RenameStagingDir(stagingDir, finalPath)
+	err = RenameStagingDir(stagingDir, finalPath)
+	if err != nil {
+		return err
+	}
+	
 	return nil
 }
 
 func RenameStagingDir(stagingDir string, newName string) error {
 	err := os.Rename(stagingDir, newName)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func safeJoin(basePath string, relativePath string) (string, error) {

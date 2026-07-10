@@ -45,7 +45,6 @@ func (progWriter *ProgressWriter) Write(p []byte) (n int, err error) {
 
 
 func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program, textSnippet string) error {
-	
 	if textSnippet != "" {
 		httpClient := &http.Client{}
 		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), strings.NewReader(textSnippet))

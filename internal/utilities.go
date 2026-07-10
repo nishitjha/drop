@@ -15,6 +15,12 @@ type IconConfig struct {
 	Fact string
 }
 
+var (
+	FileStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("39")) 
+	FolderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	TextStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("120"))
+)
+
 var Icons = IconConfig{
 	Positive:    lipgloss.NewStyle().Foreground(lipgloss.Color("#02BA80")).Render("✔"),
 	Negative:    lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5C57")).Render("✖"),
