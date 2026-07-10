@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -213,13 +214,16 @@ func Listen() {
 			if err != nil {
 				fmt.Printf("%s Error saving archive: %v\n", internal.Icons.Negative, err)
 			}
-
+			out.Close()
+			
 			if autoExtract {
 				err := archive.ExtractArchive(archivePath, receiveDir, fileName)
 				if err != nil {
 					fmt.Printf("%s Error extracting archive: %v\n", internal.Icons.Negative, err)
+					context.JSON(500, JSONresponse{Message: "Something went wrong."})
+					return
 				} else {
-					fmt.Printf("%s Successfully extracted archived folder to %s.\n", internal.Icons.Positive, receiveDir)
+					fmt.Printf("%s Successfully extracted archived folder to %s.\n", internal.Icons.Positive, filepath.Join(receiveDir, strings.TrimSuffix(fileName, "_drop.zip")))
 				}
 				
 

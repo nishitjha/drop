@@ -84,7 +84,7 @@ func ExtractArchive(archivePath string, destinationDir string, dirName string) e
 	archive.Close() //closing explicitly cause you can't really rename a folder that is still being used by some program
 	closed = true
 
-    finalPath := filepath.Join(destinationDir, dirName)
+    finalPath := filepath.Join(destinationDir, strings.TrimSuffix(dirName, "_drop.zip"))
 	err = RenameStagingDir(stagingDir, finalPath)
 	if err != nil {
 		return err
