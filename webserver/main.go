@@ -215,7 +215,7 @@ func Listen() {
 			}
 
 			if autoExtract {
-				err := archive.ExtractArchive(archivePath, receiveDir)
+				err := archive.ExtractArchive(archivePath, receiveDir, fileName)
 				if err != nil {
 					fmt.Printf("%s Error extracting archive: %v\n", internal.Icons.Negative, err)
 				} else {
