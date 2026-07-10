@@ -58,9 +58,9 @@ func (m FileModel) View() tea.View {
 
 	var s strings.Builder
 	if !m.DirMode {
-		s.WriteString("\nPick a " + m.Filepicker.Styles.File.Render("file") + " for sharing. Use the arrow keys or your mouse wheel to scroll and navigate. \nPress enter to choose the selected file.\n\n")
+		s.WriteString("\nPick a " + m.Filepicker.Styles.File.Render("file") + " for sharing. Use the arrow keys to scroll and navigate. \nPress enter to choose the selected file.\n\n")
 	} else {
-		s.WriteString("\nPick a " + m.Filepicker.Styles.File.Render("folder") + " for sharing. Use the arrow keys or your mouse wheel to scroll and navigate. \nPress enter to choose the selected folder.\n\n")
+		s.WriteString("\nPick a " + m.Filepicker.Styles.File.Render("folder") + " for sharing. Use the arrow keys to scroll and navigate. \nPress enter to choose the selected folder.\n\n")
 	}
 
 	if m.Err != nil {

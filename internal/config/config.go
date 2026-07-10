@@ -58,7 +58,7 @@ func Launch() error {
 	// if you have a slow internet connection, compression will probably help
 	// either way the default should be 0 ngl
 
-	viper.SetDefault("sharing.folders.intelligentArchive", false) // NEEDS TO BE TRUE, TURNED OFF FOR DEV
+	viper.SetDefault("sharing.folders.intelligentArchive", false)
 	// it's not all that intelligent lolol but will def lead to increased speeds
 	// turning it on will skip mp4, mkv, avi, jpg and png files etc which would not benefit greatly from compression
 	// will also exclude .zip, .tar.gz, .rar, .7z and other archive formats

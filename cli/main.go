@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -19,9 +18,7 @@ import (
 	"github.com/nishitjha/drop/internal/archive"
 	"github.com/nishitjha/drop/webserver"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
-
 
 var rootCmd = &cobra.Command{
 	Use:   "drop",
@@ -65,30 +62,9 @@ var list = &cobra.Command{
 			return
 		}
 
-		// time for some math oogabooga to figure out the widths of columns
-		maxName, maxStatus, maxIP := 11, 9, 10
 
-		for _, d := range devices {
-			if len(d.DeviceName) > maxName {
-				maxName = len(d.DeviceName)
-			}
-			if len(d.Address) > maxIP {
-				maxIP = len(d.Address)
-			}
-		}
-
-		nameCol := lipgloss.NewStyle().Width(maxName + 4)
-		statusCol := lipgloss.NewStyle().Width(maxStatus + 4)
-		ipCol := lipgloss.NewStyle().Width(maxIP + 4)
-
-		fmt.Println()
-		fmt.Print(nameCol.Bold(true).Render("Device Name"))
-		fmt.Print(statusCol.Bold(true).Render("Status"))
-		fmt.Print(ipCol.Bold(true).Render("IP Address"))
-		fmt.Println()
-
-		dividerWidth := maxName + maxStatus + maxIP + 12
-		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(strings.Repeat("─", dividerWidth)))
+		headers := []string{"Device Name", "Status", "IP Address"}
+		var rows [][]string
 
 		for _, d := range devices {
 			status := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Render("Available")
@@ -96,12 +72,15 @@ var list = &cobra.Command{
 				status = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render("Busy")
 			}
 
-			fmt.Print(nameCol.Render(d.DeviceName))
-			fmt.Print(statusCol.Render(status))
-			fmt.Print(ipCol.Render(d.Address))
-			fmt.Println()
+			rows = append(rows, []string{
+				d.DeviceName,
+				status,
+				d.Address,
+			})
 		}
-		fmt.Println()
+
+		internal.PrintTable(headers, rows)
+		return
 	},
 }
 
@@ -346,17 +325,22 @@ var config = &cobra.Command{
 	Aliases: []string{"settings", "con", "conf"},
 	Short:   "Use drop [config/settings/con/conf] to view Drop's configuration. Use drop [config/settings/con] {setting} {newValue} to change a setting.",
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			for _, key := range viper.AllKeys() {
-				fmt.Printf("%s: %v\n", key, viper.Get(key))
-			}
-			return
-		}
+		// if len(args) == 0 {
+		// 	for _, key := range viper.AllKeys() {
+		// 		fmt.Printf("%s: %v\n", key, viper.Get(key))
+		// 	}
+		// 	return
+		// }
 
-		if len(args) == 1 {
-			fmt.Printf("%s: %v\n", args[0], viper.Get(args[0]))
-			return
-		}
+		// if len(args) == 1 {
+		// 	fmt.Printf("%s: %v\n", args[0], viper.Get(args[0]))
+		// 	return
+		// }
+
+		// table format with the setting name, current value, and a description
+		//	using internal/table.go
+
+
 	},
 }
 

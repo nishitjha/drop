@@ -2,73 +2,50 @@ package internal
 
 import (
 	"fmt"
-	"os"
+	"strings"
 
-	"charm.land/bubbles/v2/table"
-	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
-var BaseStyle = lipgloss.NewStyle().Margin(1, 0)
+func PrintTable(headers []string, rows [][]string) {
+	widths := make([]int, len(headers))
+	for i, h := range headers {
+		widths[i] = lipgloss.Width(h)
+	}
 
-type Model struct {
-	Table table.Model
-}
-
-func (m Model) Init() tea.Cmd { return nil }
-
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "q", "ctrl+c", "esc":
-			return m, tea.Quit
+	for _, row := range rows {
+		for i, col := range row {
+			if i < len(widths) {
+				w := lipgloss.Width(col)
+				if w > widths[i] {
+					widths[i] = w
+				}
+			}
 		}
 	}
 
-	m.Table, cmd = m.Table.Update(msg)
-	return m, cmd
-}
-
-func (m Model) View() tea.View {
-	return tea.NewView(BaseStyle.Render(m.Table.View()) + "\n")
-}
-
-func RenderTable(entries []table.Row) {
-	columns := []table.Column{
-		{Title: "Device Name", Width: 20},
-		{Title: "Status", Width: 10},
+	var styles []lipgloss.Style
+	totalWidth := 0
+	for _, w := range widths {
+		styles = append(styles, lipgloss.NewStyle().Width(w+4))
+		totalWidth += w + 4
 	}
 
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithRows(entries),
-		table.WithHeight(7),
-	)
-
-	s := table.DefaultStyles()
-
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderBottom(true).
-		Bold(true).
-		Align(lipgloss.Left).
-		Padding(0, 1)
-
-	s.Cell = s.Cell.
-		Align(lipgloss.Left).
-		Padding(0, 1)
-
-	s.Selected = s.Cell
-
-	t.SetStyles(s)
-
-	t.SetStyles(s)
-
-	m := Model{Table: t}
-	if _, err := tea.NewProgram(m).Run(); err != nil {
-		fmt.Println("Error running program:", err)
-		os.Exit(1)
+	fmt.Println()
+	for i, h := range headers {
+		fmt.Print(styles[i].Bold(true).Render(h))
 	}
+	fmt.Println()
+
+	fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(strings.Repeat("─", totalWidth)))
+
+	for _, row := range rows {
+		for i, col := range row {
+			if i < len(styles) {
+				fmt.Print(styles[i].Render(col))
+			}
+		}
+		fmt.Println()
+	}
+	fmt.Println()
 }

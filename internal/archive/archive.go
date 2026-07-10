@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	//"archive/tar"
 	"compress/flate"
@@ -135,19 +136,81 @@ func ArchiveDirectoryToZip(sourceDir string, destination io.Writer) error {
 	return nil
 }
 
+// apparently map lookups are much faster than slice lookups - O(1) vs O(n)
+var excludedNames = map[string]bool{
+	"node_modules": true,
+	".git":         true,
+	".svn":         true,
+	".hg":          true,
+	".vscode":      true,
+	".idea":        true,
+	"vendor":       true,
+	".DS_Store":    true,
+}
+
+var ignoreCompressExts = map[string]bool{
+	".mp4": true, ".mkv": true, ".avi": true, ".mov": true, ".webm": true,
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+	".zip": true, ".tar": true, ".gz": true, ".rar": true, ".7z": true,
+	".mp3": true, ".flac": true, ".aac": true, ".m4a": true,
+	".pdf": true, ".iso": true, ".dmg": true, ".pkg": true,
+}
+
 func IntelligentArchive(sourceDir string, zipWriter *zip.Writer) error {
 	err := filepath.WalkDir(sourceDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		return nil
+		if excludedNames[d.Name()] {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			return err
+		}
+		relPath = filepath.ToSlash(relPath)
+
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+		header.Name = relPath
+
+		ext := strings.ToLower(filepath.Ext(d.Name()))
+		if ignoreCompressExts[ext] {
+			header.Method = zip.Store
+		} else {
+			header.Method = zip.Deflate
+		}
+
+		writer, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		_, err = io.Copy(writer, file)
+		return err
 	})
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
-
