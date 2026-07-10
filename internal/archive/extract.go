@@ -12,7 +12,7 @@ import (
 )
 
 func ExtractArchive(archivePath string, destinationDir string, dirName string) error {
-
+	var closed bool = false
 	// make sure the destinationDir exists (but MkdirAll will not overwrite it if it already exists)
 	err := os.MkdirAll(destinationDir, os.ModePerm)
 	if err != nil {
@@ -26,10 +26,16 @@ func ExtractArchive(archivePath string, destinationDir string, dirName string) e
 	}
 
 	archive, err := zip.OpenReader(archivePath)
+
 	if err != nil {
 		return err
 	}
-	defer archive.Close()
+
+	defer func() {
+		if !closed {
+			archive.Close()
+		}
+	}()
 
 	for _, file := range archive.File {
 		filePath, err := safeJoin(stagingDir, file.Name)
@@ -74,6 +80,9 @@ func ExtractArchive(archivePath string, destinationDir string, dirName string) e
 		dest.Close()
 		src.Close()
 	}
+
+	archive.Close() //closing explicitly cause you can't really rename a folder that is still being used by some program
+	closed = true
 
     finalPath := filepath.Join(destinationDir, dirName)
 	err = RenameStagingDir(stagingDir, finalPath)

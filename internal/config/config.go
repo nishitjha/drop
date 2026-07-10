@@ -64,7 +64,7 @@ func Launch() error {
 	// will also exclude .zip, .tar.gz, .rar, .7z and other archive formats
 	// from what i read online compression (if turned on at all) is helpful only for .txt, .json, .xml, .csv and other text-based files
 	// it will also EXCLUDE directories like node_modules, .git, .svn, .hg, .vscode, .idea etc to save time
-	viper.SetDefault("sharing.folders.autoExtractOnReceive", false)  // NEEDS TO BE TRUE, TURNED OFF FOR DEV
+	viper.SetDefault("sharing.folders.autoExtractOnReceive", true)  
 
 	viper.SetDefault("discovery.instanceName", hostname)
 	viper.SetDefault("discovery.advanced.serviceName", "_drop._tcp")
