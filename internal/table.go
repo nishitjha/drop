@@ -7,7 +7,9 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-func PrintTable(headers []string, rows [][]string) {
+const maxDescWidth = 50
+
+func PrintTable(headers []string, rows [][]string, vertSpacing bool) {
 	widths := make([]int, len(headers))
 	for i, h := range headers {
 		widths[i] = lipgloss.Width(h)
@@ -15,11 +17,15 @@ func PrintTable(headers []string, rows [][]string) {
 
 	for _, row := range rows {
 		for i, col := range row {
-			if i < len(widths) {
-				w := lipgloss.Width(col)
-				if w > widths[i] {
-					widths[i] = w
-				}
+			if i >= len(widths) {
+				continue
+			}
+			w := lipgloss.Width(col)
+			if i == len(widths)-1 && w > maxDescWidth {
+				w = maxDescWidth
+			}
+			if w > widths[i] {
+				widths[i] = w
 			}
 		}
 	}
@@ -27,25 +33,33 @@ func PrintTable(headers []string, rows [][]string) {
 	var styles []lipgloss.Style
 	totalWidth := 0
 	for _, w := range widths {
-		styles = append(styles, lipgloss.NewStyle().Width(w+4))
+		s := lipgloss.NewStyle().Width(w + 4)
+		styles = append(styles, s)
 		totalWidth += w + 4
 	}
 
 	fmt.Println()
+
+	headerCells := make([]string, len(headers))
 	for i, h := range headers {
-		fmt.Print(styles[i].Bold(true).Render(h))
+		headerCells[i] = styles[i].Bold(true).Render(h)
 	}
-	fmt.Println()
+	fmt.Println(lipgloss.JoinHorizontal(lipgloss.Top, headerCells...))
 
 	fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(strings.Repeat("─", totalWidth)))
 
-	for _, row := range rows {
-		for i, col := range row {
-			if i < len(styles) {
-				fmt.Print(styles[i].Render(col))
+	for i, row := range rows {
+		cells := make([]string, len(row))
+		for j, col := range row {
+			if j < len(styles) {
+				cells[j] = styles[j].Render(col)
 			}
 		}
-		fmt.Println()
+		fmt.Println(lipgloss.JoinHorizontal(lipgloss.Top, cells...))
+
+		if vertSpacing && i < len(rows)-1 {
+			fmt.Println()
+		}
 	}
 	fmt.Println()
 }
