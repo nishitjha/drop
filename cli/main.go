@@ -356,7 +356,7 @@ var config = &cobra.Command{
 	"discovery.advanced.domain":       "mDNS domain used for discovery (advanced, don't change unless you know why).",
 	"discovery.advanced.metadata":     "Raw TXT records advertised alongside the mDNS service.",
 	"discovery.advanced.port":         "Port used for the mDNS discovery service (separate from the webserver port).",
-
+	"discovery.advanced.deviceUUID":   "Unique identifier for this device, used to distinguish it from others on the network. Do not change this even if you know what you're doing.",
 	"network.maxBandwidthMBps": "Caps outgoing transfer speed in MB/s; 0 here corresponds to no upper bound on the speed.",
 }
 

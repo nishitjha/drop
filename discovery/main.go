@@ -17,13 +17,14 @@ var (
 	Domain       string
 	Port         int
 	Metadata     []string
+	UUID string
 )
 func Initialize() {
 	InstanceName = viper.GetString("discovery.instanceName")
 	ServiceName  = viper.GetString("discovery.advanced.serviceName")
 	Domain       = viper.GetString("discovery.advanced.domain")
 	Port         = viper.GetInt("discovery.advanced.port")
-	Metadata     = viper.GetStringSlice("discovery.advanced.metadata")
+	UUID = viper.GetString("discovery.advanced.deviceUUID")
 }
 
 type Device struct {
@@ -64,7 +65,7 @@ func LaunchService() *zeroconf.Server {
 		ServiceName,
 		Domain,
 		Port,
-		Metadata,
+		[]string{UUID},
 		nil, // auto-select from interfaces idk I'm not doing allat
 	)
 
@@ -101,7 +102,7 @@ func ServiceBrowser() {
 				Address:     entry.AddrIPv4[0].String(),
 				Status:      0,
 				LastUpdated: 0,
-				UUID:        uuid.New().String(), //newly generated each time for now, but should be a permanent identifier for the device in the future
+				UUID:        entry.Text[0], //newly generated each time for now, but should be a permanent identifier for the device in the future
 			})
 
 		}

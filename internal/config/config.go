@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/google/uuid"
 	"github.com/spf13/viper"
 )
 
@@ -71,6 +72,7 @@ func Launch() error {
 	viper.SetDefault("discovery.advanced.domain", "local.")
 	viper.SetDefault("discovery.advanced.metadata", []string{"txtv=1", "message = i made poopy in my pants"})
 	viper.SetDefault("discovery.advanced.port", 3001)
+	viper.SetDefault("discovery.advanced.deviceUUID", uuid.New().String())
 	viper.SetDefault("network.maxBandwidthMBps", 0) //0 is unlimited
 
 	if err := viper.ReadInConfig(); err != nil {
