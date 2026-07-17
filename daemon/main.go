@@ -2,6 +2,9 @@ package daemon
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/kardianos/service"
 	"github.com/nishitjha/drop/discovery"
@@ -36,7 +39,12 @@ func Execute(action string) error {
 		Name:        "Drop",
 		DisplayName: "Drop",
 		Description: "Broadcasts and listens simultaneously in the background.",
-		Arguments:   []string{"service", "run"},
+		Arguments: func() []string {
+			if runtime.GOOS == "windows" {
+				return []string{"service", "win-start"}
+			}
+			return []string{"service", "internal-run"}
+		}(),
 	}
 
 	d := &Daemon{
@@ -45,7 +53,13 @@ func Execute(action string) error {
 			discovery.Initialize()
 			discovery.LaunchService()
 			discovery.ServiceBrowser()
+
+			os.WriteFile(filepath.Join(os.TempDir(), "drop-config-debug.log"),
+				[]byte(fmt.Sprintf("Instance=%q Service=%q Domain=%q Port=%d UUID=%q\n",
+					discovery.InstanceName, discovery.ServiceName, discovery.Domain, discovery.Port, discovery.UUID)),
+				0644)
 			webserver.Listen("daemon")
+
 		},
 	}
 
@@ -81,13 +95,17 @@ func Execute(action string) error {
 		return nil
 
 	case "uninstall":
+		err = s.Stop()
+		if err != nil {
+			return err
+		}
 		err = s.Uninstall()
 		if err != nil {
 			return err
 		}
 		return nil
 
-	case "run":
+	case "internal-run":
 		logger, _ := s.Logger(nil)
 		fmt.Println("Running Drop service...")
 
@@ -98,6 +116,9 @@ func Execute(action string) error {
 		}
 		return nil
 
+	case "win-start":
+		d.run()
+		return nil
 	}
 	return nil
 }
