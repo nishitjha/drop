@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 
@@ -383,30 +384,37 @@ var config = &cobra.Command{
 
 var service = &cobra.Command{
 	Use:   "service",
-	Short: "Use drop service to install, run, kill, or uninstall Drop as a background service.",
+	Short: "Use drop service to install, start, kill, or uninstall Drop as a background service.",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			fmt.Printf("%s You forgot to specify a command! Use \"drop service [install/run/kill/uninstall] or [i/r/k/u]\" to manage Drop as a background service.\n", internal.Icons.Negative)
+			fmt.Printf("%s You forgot to specify a command! Use \"drop service [install/start/kill/uninstall] or [i/s/k/u]\" to manage the Drop daemon.\n", internal.Icons.Negative)
 			return
 		}
 
-		if args[0] == "install" || args[0] == "i" {
-			daemon.Execute()
+		if slices.Contains([]string{"install", "i", "start", "s", "kill", "k", "uninstall", "u", "run"}, args[0]) {
+			action := args[0]
+			err := daemon.Execute(action)
+			if err != nil {
+				fmt.Printf("%s Ran into a problem: %v\n", internal.Icons.Negative, err)
+				return
+			}
+			fmt.Printf("%s Successfully %s the Drop daemon.\n", internal.Icons.Positive, func() string {
+				switch action {
+				case "install", "i":
+					return "installed"
+				case "start", "s":
+					return "started"
+				case "kill", "k":
+					return "stopped"
+				case "uninstall", "u":
+					return "uninstalled"
+				default:
+					return ""
+				}
+			}())
+		} else {
+			fmt.Printf("%s Unknown command \"%s\". Use \"drop service [install/start/kill/uninstall] or [i/s/k/u]\" to manage the Drop daemon.\n", internal.Icons.Negative, args[0])
 		}
-
-		if args[0] == "run" || args[0] == "r" {
-			daemon.Execute()
-		}
-
-		if args[0] == "kill" || args[0] == "k" {
-			daemon.Execute()
-		}
-
-		if args[0] == "uninstall" || args[0] == "u" {
-			daemon.Execute()
-		}
-
-		// this is the big moment when we deny the user their rights and keep running the daemon
 	},
 }
 

@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	"fmt"
+
 	"github.com/kardianos/service"
 )
 
@@ -23,14 +25,16 @@ func (d *Daemon) Start(s service.Service) error {
 }
 
 func (d *Daemon) Stop(s service.Service) error {
+	close(d.stop)
 	return nil
 }
 
-func Execute() error {
+func Execute(action string) error {
 	svcConfig := &service.Config{
 		Name:        "Drop",
 		DisplayName: "Drop",
 		Description: "Broadcasts and listens simultaneously in the background.",
+		Arguments:   []string{"service", "run"},
 	}
 
 	d := &Daemon{
@@ -45,16 +49,50 @@ func Execute() error {
 		return err
 	}
 
-	logger, err := s.Logger(nil) // idk if we need a logger but it seems like the best practice to have one
-	if err != nil {
-		return err
-	}
+	switch action {
+	case "install":
+		err = s.Install()
+		if err != nil {
+			return err
+		}
+		err = s.Start()
+		if err != nil {
+			return err
+		}
+		return nil
 
-	err = s.Run()
-	if err != nil {
-		logger.Error(err)
-		return err
-	}
+	case "start":
+		err = s.Start()
+		if err != nil {
+			return err
+		}
+		return nil
 
+	case "stop":
+		err = s.Stop()
+		if err != nil {
+			return err
+		}
+		return nil
+
+	case "uninstall":
+		err = s.Uninstall()
+		if err != nil {
+			return err
+		}
+		return nil
+
+	case "run":
+		logger, _ := s.Logger(nil)
+		fmt.Println("Running Drop service...")
+
+		err = s.Run()
+		if err != nil {
+			logger.Error(err)
+			return err
+		}
+		return nil
+
+	}
 	return nil
 }
