@@ -68,7 +68,7 @@ func Execute(action string) error {
 		}
 		return nil
 
-	case "stop":
+	case "kill":
 		err = s.Stop()
 		if err != nil {
 			return err

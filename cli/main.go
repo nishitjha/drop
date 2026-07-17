@@ -323,60 +323,61 @@ var config = &cobra.Command{
 	Short:   "Use drop [config/settings/con/conf] to view Drop's configuration. Use drop [config/settings/con] {setting} {newValue} to change a setting.",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		headers := []string{"Setting", "Current Value", "Description"}
-		var rows [][]string
+		if len(args) == 0 {
+			headers := []string{"Setting", "Current Value", "Description"}
+			var rows [][]string
 
-		var description = map[string]string{
-			"sharing.receiveDir":                 "Default folder where incoming files are saved.",
-			"sharing.isDiscoverable":             "Choose whether this device is visible to others on the network via mDNS.",
-			"sharing.askReceiveDirEverytime":     "Choose whether you should be asked where to save incoming files everytime instead of using the default.",
-			"sharing.trustAllDevices":            "Skip confirmation prompts and accept requests from all devices automatically.",
-			"sharing.trustedDevices":             "Set of devices allowed to send files without you having to accept a sharing request.",
-			"sharing.autoRejectUntrustedDevices": "Automatically reject incoming requests from devices not in the trusted list.",
-			"sharing.autoRenameExistingFiles":    "Append a suffix to incoming files instead of overwriting existing ones with the same name.",
+			var description = map[string]string{
+				"sharing.receiveDir":                 "Default folder where incoming files are saved.",
+				"sharing.isDiscoverable":             "Choose whether this device is visible to others on the network via mDNS.",
+				"sharing.askReceiveDirEverytime":     "Choose whether you should be asked where to save incoming files everytime instead of using the default.",
+				"sharing.trustAllDevices":            "Skip confirmation prompts and accept requests from all devices automatically.",
+				"sharing.trustedDevices":             "Set of devices allowed to send files without you having to accept a sharing request.",
+				"sharing.autoRejectUntrustedDevices": "Automatically reject incoming requests from devices not in the trusted list.",
+				"sharing.autoRenameExistingFiles":    "Append a suffix to incoming files instead of overwriting existing ones with the same name.",
 
-			"sharing.acceptTextSnippetsByDefault": "Automatically accept incoming plain-text/clipboard snippets without a prompt.",
-			"sharing.autoCopyToClipboard":         "Copy received text snippets to the clipboard automatically.",
+				"sharing.acceptTextSnippetsByDefault": "Automatically accept incoming plain-text/clipboard snippets without a prompt.",
+				"sharing.autoCopyToClipboard":         "Copy received text snippets to the clipboard automatically.",
 
-			"sharing.advanced.enableTransferLog": "Keep a persistent log of completed and failed transfers.",
-			"sharing.advanced.logFilePath":       "Path to the transfer history log file.",
+				"sharing.advanced.enableTransferLog": "Keep a persistent log of completed and failed transfers.",
+				"sharing.advanced.logFilePath":       "Path to the transfer history log file.",
 
-			"sharing.folders.archiveFormat":        "Archive format used when sending folders (zip or tar.gz), OS-dependent by default.",
-			"sharing.folders.compressionLevel":     "Compression level for folder archives, from 0 (none) to 3 (max); higher levels use more CPU in exchange for smaller transfers.",
-			"sharing.folders.intelligentArchive":   "Skip compressing files that don't benefit from it (media, existing archives) and exclude common dev/VCS directories when archiving folders.",
-			"sharing.folders.autoExtractOnReceive": "Automatically extract received folder archives instead of leaving them compressed.",
+				"sharing.folders.archiveFormat":        "Archive format used when sending folders (zip or tar.gz), OS-dependent by default.",
+				"sharing.folders.compressionLevel":     "Compression level for folder archives, from 0 (none) to 3 (max); higher levels use more CPU in exchange for smaller transfers.",
+				"sharing.folders.intelligentArchive":   "Skip compressing files that don't benefit from it (media, existing archives) and exclude common dev/VCS directories when archiving folders.",
+				"sharing.folders.autoExtractOnReceive": "Automatically extract received folder archives instead of leaving them compressed.",
 
-			"webserver.port": "Port the local HTTP server listens on for incoming transfers and the web UI.",
+				"webserver.port": "Port the local HTTP server listens on for incoming transfers and the web UI.",
 
-			"discovery.instanceName":         "Name this device advertises to others on the network.",
-			"discovery.advanced.serviceName": "mDNS service type used for discovery (advanced, don't change unless you know why).",
-			"discovery.advanced.domain":      "mDNS domain used for discovery (advanced, don't change unless you know why).",
-			"discovery.advanced.metadata":    "Raw TXT records advertised alongside the mDNS service.",
-			"discovery.advanced.port":        "Port used for the mDNS discovery service (separate from the webserver port).",
-			"discovery.advanced.deviceUUID":  "Unique identifier for this device, used to distinguish it from others on the network. Do not change this even if you know what you're doing.",
-			"network.maxBandwidthMBps":       "Caps outgoing transfer speed in MB/s; 0 here corresponds to no upper bound on the speed.",
+				"discovery.instanceName":         "Name this device advertises to others on the network.",
+				"discovery.advanced.serviceName": "mDNS service type used for discovery (advanced, don't change unless you know why).",
+				"discovery.advanced.domain":      "mDNS domain used for discovery (advanced, don't change unless you know why).",
+				"discovery.advanced.metadata":    "Raw TXT records advertised alongside the mDNS service.",
+				"discovery.advanced.port":        "Port used for the mDNS discovery service (separate from the webserver port).",
+				"discovery.advanced.deviceUUID":  "Unique identifier for this device, used to distinguish it from others on the network. Do not change this even if you know what you're doing.",
+				"network.maxBandwidthMBps":       "Caps outgoing transfer speed in MB/s; 0 here corresponds to no upper bound on the speed.",
+			}
+
+			// in case you get a bug here it prolly has to do with the fact that viper.AllKeys() returns the keyname in lowercase
+			// the description map has the keys in camelCase so yeah
+
+			for key, desc := range description {
+				name := lipgloss.NewStyle().Bold(true).Render(key)
+				current := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Render(fmt.Sprintf("%v", viper.Get(key)))
+				description := lipgloss.NewStyle().Foreground(lipgloss.Color("#9d9c9c")).Render(desc)
+				rows = append(rows, []string{name, current, description})
+			}
+
+			internal.PrintTable(headers, rows, true)
 		}
-
-		// in case you get a bug here it prolly has to do with the fact that viper.AllKeys() returns the keyname in lowercase
-		// the description map has the keys in camelCase so yeah
-
-		for key, desc := range description {
-			name := lipgloss.NewStyle().Bold(true).Render(key)
-			current := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Render(fmt.Sprintf("%v", viper.Get(key)))
-			description := lipgloss.NewStyle().Foreground(lipgloss.Color("#9d9c9c")).Render(desc)
-			rows = append(rows, []string{name, current, description})
-		}
-
-		internal.PrintTable(headers, rows, true)
-
 		if len(args) == 1 {
-			fmt.Printf("%s is currently set to .%v\n", args[0], viper.Get(args[0]))
+			fmt.Printf("The setting \"%s\" is currently set to \"%v\".\n", args[0], viper.Get(args[0]))
 			return
 		}
 
 		if len(args) == 2 {
 			viper.Set(args[0], args[1])
-			fmt.Printf("%s %s has been set to .%v\n", internal.Icons.Positive, args[0], viper.Get(args[0]))
+			fmt.Printf("The setting \"%s\" has been set to \"%v\".\n", args[0], viper.Get(args[0]))
 			return
 		}
 	},
