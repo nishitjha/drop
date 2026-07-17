@@ -2,16 +2,19 @@ package daemon
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 
 	"github.com/kardianos/service"
 	"github.com/nishitjha/drop/discovery"
+	"github.com/nishitjha/drop/internal"
 	"github.com/nishitjha/drop/webserver"
 )
 
 type Daemon struct {
 	stop chan struct{}
-	// apparently using an empty struct is a good idea for this purpose because firstly it doesn't take up any space
-	// and secondly the data itself is not important, we just need a signal to stop the daemon so ok gopher whatever you say
 
 	service service.Service
 
@@ -19,7 +22,6 @@ type Daemon struct {
 }
 
 func (d *Daemon) Start(s service.Service) error {
-	// this function should not block the main thread, so we will run the actual daemon in a goroutine
 	d.service = s
 	go d.run()
 
@@ -31,22 +33,75 @@ func (d *Daemon) Stop(s service.Service) error {
 	return nil
 }
 
+const windowsTaskName = "Drop"
+
+func windowsInstall() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	dropwPath := filepath.Join(filepath.Dir(exePath), "dropw.exe")
+	if _, err := os.Stat(dropwPath); err != nil {
+		fmt.Printf("%s dropw.exe not found next to drop.exe. You probably forgot to build it.", internal.Icons.Negative)
+		return err
+	}
+
+	createCmd := exec.Command("schtasks", "/create", "/tn", windowsTaskName,
+		"/tr", fmt.Sprintf(`"%s" service install`, dropwPath),
+		"/sc", "onlogon", "/f")
+	if err := createCmd.Run(); err != nil {
+		fmt.Printf("%s Failed to create scheduled task: %v\n", internal.Icons.Negative, createCmd)
+		return err
+	}
+
+	return exec.Command("schtasks", "/run", "/tn", windowsTaskName).Run()
+}
+
+func windowsUninstall() error {
+	return exec.Command("schtasks", "/delete", "/tn", windowsTaskName, "/f").Run()
+}
+
+func windowsKill() error {
+	return exec.Command("schtasks", "/end", "/tn", windowsTaskName).Run()
+}
+
 func Execute(action string) error {
+	if runtime.GOOS == "windows" {
+		switch action {
+		case "install":
+			return windowsInstall()
+		case "start":
+			return exec.Command("schtasks", "/run", "/tn", windowsTaskName).Run()
+		case "kill":
+			return windowsKill()
+		case "uninstall":
+			windowsKill()
+			return windowsUninstall()
+		case "win-start":
+			d := &Daemon{
+				stop: make(chan struct{}),
+				run:  runFunc(),
+			}
+			d.run()
+			return nil
+		}
+		return nil
+	}
+
 	svcConfig := &service.Config{
 		Name:        "Drop",
 		DisplayName: "Drop",
 		Description: "Broadcasts and listens simultaneously in the background.",
-		Arguments:   []string{"service", "run"},
+		Arguments:   []string{"service", "internal-run"},
+		Option: service.KeyValue{
+			"UserService": true,
+		},
 	}
 
 	d := &Daemon{
 		stop: make(chan struct{}),
-		run: func() {
-			discovery.Initialize()
-			discovery.LaunchService()
-			discovery.ServiceBrowser()
-			webserver.Listen("daemon")
-		},
+		run:  runFunc(),
 	}
 
 	s, err := service.New(d, svcConfig)
@@ -56,48 +111,40 @@ func Execute(action string) error {
 
 	switch action {
 	case "install":
-		err = s.Install()
-		if err != nil {
+		if err := s.Install(); err != nil {
 			return err
 		}
-		err = s.Start()
-		if err != nil {
-			return err
-		}
-		return nil
+		return s.Start()
 
 	case "start":
-		err = s.Start()
-		if err != nil {
-			return err
-		}
-		return nil
+		return s.Start()
 
 	case "kill":
-		err = s.Stop()
-		if err != nil {
-			return err
-		}
-		return nil
+		return s.Stop()
 
 	case "uninstall":
-		err = s.Uninstall()
-		if err != nil {
-			return err
-		}
-		return nil
+		s.Stop()
+		return s.Uninstall()
 
-	case "run":
+	case "internal-run":
 		logger, _ := s.Logger(nil)
 		fmt.Println("Running Drop service...")
 
-		err = s.Run()
-		if err != nil {
+		if err := s.Run(); err != nil {
 			logger.Error(err)
 			return err
 		}
 		return nil
-
 	}
 	return nil
+}
+
+func runFunc() func() {
+	return func() {
+		discovery.Initialize()
+		discovery.LaunchService()
+		go discovery.ServiceBrowser()
+
+		webserver.Listen("daemon")
+	}
 }

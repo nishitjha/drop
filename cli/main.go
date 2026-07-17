@@ -392,7 +392,7 @@ var service = &cobra.Command{
 			return
 		}
 
-		if slices.Contains([]string{"install", "i", "start", "s", "kill", "k", "uninstall", "u", "run"}, args[0]) {
+		if slices.Contains([]string{"install", "i", "start", "s", "kill", "k", "uninstall", "u", "internal-run", "win-start"}, args[0]) {
 			action := args[0]
 			err := daemon.Execute(action)
 			if err != nil {

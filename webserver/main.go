@@ -142,6 +142,9 @@ func Listen(mode string) {
 	})
 
 	router.GET("/request", func(context *gin.Context) {
+
+		path := filepath.Join(os.TempDir(), "drop-debug.log")
+		os.WriteFile(path, []byte("about to open browser\n"), 0644)
 		senderName := context.Query("senderName")
 		senderUUID := context.Query("UUID")
 		fileName := context.Query("fileName")
@@ -331,10 +334,7 @@ func HandleRequests(mode string) {
 	for req := range incomingRequests {
 
 		if mode == "daemon" {
-			//open a new terminal window
 			browser.OpenURL("https://google.com")
-			path := filepath.Join(os.TempDir(), "drop-debug.log")
-			os.WriteFile(path, []byte("about to open browser\n"), 0644)
 
 		} else {
 			m := confirmModel{
