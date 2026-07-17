@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nishitjha/drop/internal"
 	"github.com/nishitjha/drop/internal/archive"
+	"github.com/pkg/browser"
 	"github.com/spf13/viper"
 	"golang.design/x/clipboard"
 	//"github.com/ncruces/zenity"
@@ -23,12 +24,12 @@ type JSONresponse struct {
 }
 
 type AuthRequest struct {
-	SenderName string
-	SenderUUID string
-	Response   chan bool
-	FileName   string
-	FileSize   int64
-	TextMode   bool
+	SenderName    string
+	SenderUUID    string
+	Response      chan bool
+	FileName      string
+	FileSize      int64
+	TextMode      bool
 	DirectoryMode bool
 }
 
@@ -41,11 +42,10 @@ type confirmModel struct {
 
 var incomingRequests = make(chan AuthRequest)
 
-func Listen() {
+func Listen(mode string) {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
-
-	go HandleRequests()
+	go HandleRequests(mode)
 
 	router.POST("/upload", func(context *gin.Context) {
 		receiveDir := viper.GetString("sharing.receiveDir")
@@ -76,10 +76,10 @@ func Listen() {
 				}
 
 				clipboard.Write(clipboard.FmtText, bodyBytes)
-				
+
 				fmt.Printf("%s The text snippet has been copied to your clipboard.\n", internal.Icons.Positive)
 				context.JSON(200, JSONresponse{Message: "Text snippet sent successfully."})
-				
+
 				return
 			}
 			timestamp := time.Now().Format("02-01-06")
@@ -114,7 +114,7 @@ func Listen() {
 
 		fileName := context.GetHeader("X-Filename")
 		location := filepath.Join(receiveDir, fileName)
-		
+
 		err := os.MkdirAll(receiveDir, os.ModePerm)
 		if err != nil {
 			fmt.Println(err)
@@ -131,7 +131,7 @@ func Listen() {
 		defer out.Close()
 
 		_, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
-		
+
 		if err != nil {
 			fmt.Println(err)
 			context.JSON(500, JSONresponse{Message: err.Error()})
@@ -161,7 +161,7 @@ func Listen() {
 				fmt.Sscanf(fileSize, "%d", &size)
 				return size
 			}(),
-			TextMode: textMode,
+			TextMode:      textMode,
 			DirectoryMode: directoryMode,
 		}
 
@@ -182,7 +182,7 @@ func Listen() {
 		askEverytime := viper.GetBool("sharing.askReceiveDirEverytime")
 		autoExtract := viper.GetBool("sharing.folders.autoExtractOnReceive")
 		format := context.Query("format")
-		
+
 		fileName := context.GetHeader("X-Filename")
 
 		if askEverytime {
@@ -225,7 +225,6 @@ func Listen() {
 				} else {
 					fmt.Printf("%s Successfully extracted archived folder to %s.\n", internal.Icons.Positive, filepath.Join(receiveDir, strings.TrimSuffix(fileName, "_drop.zip")))
 				}
-				
 
 				context.JSON(200, JSONresponse{Message: fmt.Sprintf("Archive %s uploaded and extracted successfully", fileName)})
 
@@ -240,12 +239,10 @@ func Listen() {
 
 			fmt.Printf("%s Received archive %s. You can find it at %s.\n", internal.Icons.Positive, fileName, archivePath)
 			context.JSON(200, JSONresponse{Message: fmt.Sprintf("Archive %s uploaded successfully", fileName)})
-			
+
 			return
 		}
 
-
-		
 	})
 
 	err := router.Run(fmt.Sprintf("0.0.0.0:%d", viper.GetInt("webserver.port")))
@@ -301,7 +298,7 @@ func (m confirmModel) View() string {
 	}(), m.req.SenderName)
 	s += " Use the arrow keys to select an option and press enter to confirm. \n You may also press the keys 'y' or 'n' to accept or decline respectively. \n\n"
 	s += " You have three minutes to respond. \n\n"
- 	if m.req.FileName != "" {
+	if m.req.FileName != "" {
 		s += fmt.Sprintf(" - %s name: %s\n", func() string {
 			if m.req.DirectoryMode {
 				return "Folder"
@@ -330,29 +327,39 @@ func (m confirmModel) View() string {
 	return s
 }
 
-func HandleRequests() {
+func HandleRequests(mode string) {
 	for req := range incomingRequests {
-		m := confirmModel{
-			req:    req,
-			choice: true,
-		}
 
-		p := tea.NewProgram(m)
-		finalModel, err := p.Run()
+		if mode == "daemon" {
+			//open a new terminal window
+			browser.OpenURL("https://google.com")
+			path := filepath.Join(os.TempDir(), "drop-debug.log")
+			os.WriteFile(path, []byte("about to open browser\n"), 0644)
 
-		if err != nil {
-			req.Response <- false
-			continue
-		}
-
-		fm := finalModel.(confirmModel)
-
-		if fm.answered && fm.choice {
-			fmt.Printf("%s Accepted sharing request from \"%s\".\n", internal.Icons.Positive, req.SenderName)
-			req.Response <- true
 		} else {
-			fmt.Printf("%s Declined sharing request from \"%s\".\n", internal.Icons.Negative, req.SenderName)
-			req.Response <- false
+			m := confirmModel{
+				req:    req,
+				choice: true,
+			}
+
+			p := tea.NewProgram(m)
+			finalModel, err := p.Run()
+
+			if err != nil {
+				req.Response <- false
+				continue
+			}
+
+			fm := finalModel.(confirmModel)
+
+			if fm.answered && fm.choice {
+				fmt.Printf("%s Accepted sharing request from \"%s\".\n", internal.Icons.Positive, req.SenderName)
+				req.Response <- true
+			} else {
+				fmt.Printf("%s Declined sharing request from \"%s\".\n", internal.Icons.Negative, req.SenderName)
+				req.Response <- false
+			}
 		}
 	}
+
 }

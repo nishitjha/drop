@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/kardianos/service"
+	"github.com/nishitjha/drop/discovery"
+	"github.com/nishitjha/drop/webserver"
 )
 
 type Daemon struct {
@@ -19,8 +21,8 @@ type Daemon struct {
 func (d *Daemon) Start(s service.Service) error {
 	// this function should not block the main thread, so we will run the actual daemon in a goroutine
 	d.service = s
-
 	go d.run()
+
 	return nil
 }
 
@@ -40,7 +42,10 @@ func Execute(action string) error {
 	d := &Daemon{
 		stop: make(chan struct{}),
 		run: func() {
-			// run discovery.LaunchService() and discovery.ServiceBrowser() here
+			discovery.Initialize()
+			discovery.LaunchService()
+			discovery.ServiceBrowser()
+			webserver.Listen("daemon")
 		},
 	}
 

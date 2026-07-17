@@ -30,7 +30,7 @@ var rootCmd = &cobra.Command{
 		server := discovery.LaunchService()
 		discovery.ServiceBrowser()
 
-		go webserver.Listen()
+		go webserver.Listen("user")
 
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
