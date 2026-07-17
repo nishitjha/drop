@@ -13,6 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/nishitjha/drop/daemon"
 	"github.com/nishitjha/drop/discovery"
 	"github.com/nishitjha/drop/internal"
 	"github.com/nishitjha/drop/internal/archive"
@@ -35,7 +36,7 @@ var rootCmd = &cobra.Command{
 
 		<-sig
 		fmt.Printf("%s Au revoir!", internal.Icons.Bye)
-		
+
 		if server != nil {
 			server.Shutdown()
 		}
@@ -62,7 +63,6 @@ var list = &cobra.Command{
 			fmt.Printf("%s Couldn't find any devices on your network. Make sure they're running Drop and try again.\n", internal.Icons.Negative)
 			return
 		}
-
 
 		headers := []string{"Device Name", "Status", "IP Address"}
 		var rows [][]string
@@ -91,7 +91,7 @@ var share = &cobra.Command{
 	Use:     "share deviceName [file_path]",
 	Aliases: []string{"sh", "send"},
 	Short:   "Use drop [share/sh/send] {device_name} {file_path} to attempt streaming a file across to said device.",
-	Long:  "Use drop [share/sh/send] {device_name} {file_path} to attempt streaming a file across to said device. \n Use the -t or --text flag to share a text snippet instead of a file. \n Example: drop share -t {device_name} \"Hello, world!\"",
+	Long:    "Use drop [share/sh/send] {device_name} {file_path} to attempt streaming a file across to said device. \n Use the -t or --text flag to share a text snippet instead of a file. \n Example: drop share -t {device_name} \"Hello, world!\"",
 	Run: func(cmd *cobra.Command, args []string) {
 
 		if len(args) == 0 {
@@ -139,46 +139,44 @@ var share = &cobra.Command{
 				return
 			}
 			result := internal.RunSpinner(fmt.Sprintf("Sent a text share request to \"%s\". The device has 3 minutes to accept it.", targetDevice.DeviceName), func() tea.Msg {
-			httpClient := &http.Client{}
+				httpClient := &http.Client{}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-			defer cancel()
+				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+				defer cancel()
 
-			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&t=%v&UUID=%s", targetDevice.Address, discovery.InstanceName, true, targetDevice.UUID)
-		
-		
-			req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
-			if err != nil {
-				return internal.TaskResultMsg{Error: err}
-			}
+				reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&t=%v&UUID=%s", targetDevice.Address, discovery.InstanceName, true, targetDevice.UUID)
 
-			response, err := httpClient.Do(req)
-			return internal.TaskResultMsg{Response: response, Error: err}
-		
-		})
+				req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+				if err != nil {
+					return internal.TaskResultMsg{Error: err}
+				}
+
+				response, err := httpClient.Do(req)
+				return internal.TaskResultMsg{Response: response, Error: err}
+
+			})
 
 			if result.Error != nil {
 				fmt.Printf("%s The request timed out. Maybe they missed it? (either that or they hate you).\n", internal.Icons.Information)
 				return
 			}
 
-			defer result.Response.Body.Close() 
+			defer result.Response.Body.Close()
 
 			if result.Response.StatusCode == http.StatusOK {
-			fmt.Printf("%s Great success! \"%s\" accepted your text sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
+				fmt.Printf("%s Great success! \"%s\" accepted your text sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
 
-			internal.Launch(targetDevice.Address, targetDevice.DeviceName, "", textSnippet)
-		} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
-			fmt.Printf("%s What a fucking loser. \"%s\" declined your text sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)
-		}
-		
+				internal.Launch(targetDevice.Address, targetDevice.DeviceName, "", textSnippet)
+			} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
+				fmt.Printf("%s What a fucking loser. \"%s\" declined your text sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)
+			}
+
 			return
 		}
-	
 
 		var fileInfo os.FileInfo
 		var err error
-		if (len(args) > 1) {
+		if len(args) > 1 {
 			if _, err := os.Stat(args[1]); os.IsNotExist(err) {
 				fmt.Printf("%s The file or directory \"%s\" does not exist. Make sure you typed the absolute/relative path correctly and try again.\n", internal.Icons.Negative, args[1])
 				return
@@ -200,7 +198,6 @@ var share = &cobra.Command{
 				return
 			}
 		}
-
 
 		result := internal.RunSpinner(fmt.Sprintf("Sent a share request to \"%s\". The device has 3 minutes to accept it.", targetDevice.DeviceName), func() tea.Msg {
 			httpClient := &http.Client{}
@@ -268,7 +265,6 @@ var share = &cobra.Command{
 			p := tea.NewProgram(pickerModel)
 			finalModel, err := p.Run()
 
-
 			if err != nil {
 				fmt.Printf("%s Error running the %s picker: %v\n", internal.Icons.Negative, func() string {
 					if dirMode {
@@ -330,38 +326,38 @@ var config = &cobra.Command{
 		var rows [][]string
 
 		var description = map[string]string{
-	"sharing.receiveDir":                 "Default folder where incoming files are saved.",
-	"sharing.isDiscoverable":             "Choose whether this device is visible to others on the network via mDNS.",
-	"sharing.askReceiveDirEverytime":     "Choose whether you should be asked where to save incoming files everytime instead of using the default.",
-	"sharing.trustAllDevices":            "Skip confirmation prompts and accept requests from all devices automatically.",
-	"sharing.trustedDevices":             "Set of devices allowed to send files without you having to accept a sharing request.",
-	"sharing.autoRejectUntrustedDevices": "Automatically reject incoming requests from devices not in the trusted list.",
-	"sharing.autoRenameExistingFiles":    "Append a suffix to incoming files instead of overwriting existing ones with the same name.",
+			"sharing.receiveDir":                 "Default folder where incoming files are saved.",
+			"sharing.isDiscoverable":             "Choose whether this device is visible to others on the network via mDNS.",
+			"sharing.askReceiveDirEverytime":     "Choose whether you should be asked where to save incoming files everytime instead of using the default.",
+			"sharing.trustAllDevices":            "Skip confirmation prompts and accept requests from all devices automatically.",
+			"sharing.trustedDevices":             "Set of devices allowed to send files without you having to accept a sharing request.",
+			"sharing.autoRejectUntrustedDevices": "Automatically reject incoming requests from devices not in the trusted list.",
+			"sharing.autoRenameExistingFiles":    "Append a suffix to incoming files instead of overwriting existing ones with the same name.",
 
-	"sharing.acceptTextSnippetsByDefault": "Automatically accept incoming plain-text/clipboard snippets without a prompt.",
-	"sharing.autoCopyToClipboard":         "Copy received text snippets to the clipboard automatically.",
+			"sharing.acceptTextSnippetsByDefault": "Automatically accept incoming plain-text/clipboard snippets without a prompt.",
+			"sharing.autoCopyToClipboard":         "Copy received text snippets to the clipboard automatically.",
 
-	"sharing.advanced.enableTransferLog": "Keep a persistent log of completed and failed transfers.",
-	"sharing.advanced.logFilePath":       "Path to the transfer history log file.",
+			"sharing.advanced.enableTransferLog": "Keep a persistent log of completed and failed transfers.",
+			"sharing.advanced.logFilePath":       "Path to the transfer history log file.",
 
-	"sharing.folders.archiveFormat":       "Archive format used when sending folders (zip or tar.gz), OS-dependent by default.",
-	"sharing.folders.compressionLevel":    "Compression level for folder archives, from 0 (none) to 3 (max); higher levels use more CPU in exchange for smaller transfers.",
-	"sharing.folders.intelligentArchive":  "Skip compressing files that don't benefit from it (media, existing archives) and exclude common dev/VCS directories when archiving folders.",
-	"sharing.folders.autoExtractOnReceive": "Automatically extract received folder archives instead of leaving them compressed.",
+			"sharing.folders.archiveFormat":        "Archive format used when sending folders (zip or tar.gz), OS-dependent by default.",
+			"sharing.folders.compressionLevel":     "Compression level for folder archives, from 0 (none) to 3 (max); higher levels use more CPU in exchange for smaller transfers.",
+			"sharing.folders.intelligentArchive":   "Skip compressing files that don't benefit from it (media, existing archives) and exclude common dev/VCS directories when archiving folders.",
+			"sharing.folders.autoExtractOnReceive": "Automatically extract received folder archives instead of leaving them compressed.",
 
-	"webserver.port": "Port the local HTTP server listens on for incoming transfers and the web UI.",
+			"webserver.port": "Port the local HTTP server listens on for incoming transfers and the web UI.",
 
-	"discovery.instanceName":          "Name this device advertises to others on the network.",
-	"discovery.advanced.serviceName":  "mDNS service type used for discovery (advanced, don't change unless you know why).",
-	"discovery.advanced.domain":       "mDNS domain used for discovery (advanced, don't change unless you know why).",
-	"discovery.advanced.metadata":     "Raw TXT records advertised alongside the mDNS service.",
-	"discovery.advanced.port":         "Port used for the mDNS discovery service (separate from the webserver port).",
-	"discovery.advanced.deviceUUID":   "Unique identifier for this device, used to distinguish it from others on the network. Do not change this even if you know what you're doing.",
-	"network.maxBandwidthMBps": "Caps outgoing transfer speed in MB/s; 0 here corresponds to no upper bound on the speed.",
-}
+			"discovery.instanceName":         "Name this device advertises to others on the network.",
+			"discovery.advanced.serviceName": "mDNS service type used for discovery (advanced, don't change unless you know why).",
+			"discovery.advanced.domain":      "mDNS domain used for discovery (advanced, don't change unless you know why).",
+			"discovery.advanced.metadata":    "Raw TXT records advertised alongside the mDNS service.",
+			"discovery.advanced.port":        "Port used for the mDNS discovery service (separate from the webserver port).",
+			"discovery.advanced.deviceUUID":  "Unique identifier for this device, used to distinguish it from others on the network. Do not change this even if you know what you're doing.",
+			"network.maxBandwidthMBps":       "Caps outgoing transfer speed in MB/s; 0 here corresponds to no upper bound on the speed.",
+		}
 
-// in case you get a bug here it prolly has to do with the fact that viper.AllKeys() returns the keyname in lowercase
-// the description map has the keys in camelCase so yeah
+		// in case you get a bug here it prolly has to do with the fact that viper.AllKeys() returns the keyname in lowercase
+		// the description map has the keys in camelCase so yeah
 
 		for key, desc := range description {
 			name := lipgloss.NewStyle().Bold(true).Render(key)
@@ -372,8 +368,6 @@ var config = &cobra.Command{
 
 		internal.PrintTable(headers, rows, true)
 
-
-		
 		if len(args) == 1 {
 			fmt.Printf("%s is currently set to .%v\n", args[0], viper.Get(args[0]))
 			return
@@ -387,10 +381,40 @@ var config = &cobra.Command{
 	},
 }
 
+var service = &cobra.Command{
+	Use:   "service",
+	Short: "Use drop service to install, run, kill, or uninstall Drop as a background service.",
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			fmt.Printf("%s You forgot to specify a command! Use \"drop service [install/run/kill/uninstall] or [i/r/k/u]\" to manage Drop as a background service.\n", internal.Icons.Negative)
+			return
+		}
+
+		if args[0] == "install" || args[0] == "i" {
+			daemon.Execute()
+		}
+
+		if args[0] == "run" || args[0] == "r" {
+			daemon.Execute()
+		}
+
+		if args[0] == "kill" || args[0] == "k" {
+			daemon.Execute()
+		}
+
+		if args[0] == "uninstall" || args[0] == "u" {
+			daemon.Execute()
+		}
+
+		// this is the big moment when we deny the user their rights and keep running the daemon
+	},
+}
+
 func init() {
-	rootCmd.AddCommand(list, share, config)
+	rootCmd.AddCommand(list, share, config, service)
 	share.Flags().BoolVarP(&textMode, "text", "t", false, "Share a text snippet instead of a file.")
 	share.Flags().BoolVarP(&dirMode, "dir", "d", false, "Share an entire directory instead of a file.")
+
 }
 
 func Execute() {

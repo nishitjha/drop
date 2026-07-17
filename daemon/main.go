@@ -1,19 +1,8 @@
 package daemon
 
 import (
-	"os/exec"
-
 	"github.com/kardianos/service"
 )
-
-type Config struct {
-	Dir  string
-	Exec string
-	Args []string
-	Env  []string
-
-	Stderr, Stdout string
-}
 
 type Daemon struct {
 	stop chan struct{}
@@ -22,13 +11,14 @@ type Daemon struct {
 
 	service service.Service
 
-	*Config
-	cmd *exec.Cmd
+	run func()
 }
 
 func (d *Daemon) Start(s service.Service) error {
 	// this function should not block the main thread, so we will run the actual daemon in a goroutine
-	go d.cmd.Run()
+	d.service = s
+
+	go d.run()
 	return nil
 }
 
@@ -36,12 +26,35 @@ func (d *Daemon) Stop(s service.Service) error {
 	return nil
 }
 
-func NewDaemon(config *Config) (*Daemon, error) {
-	d := &Daemon{
-		Config: config,
-		stop:   make(chan struct{}),
-		cmd:    exec.Command(config.Exec, config.Args...),
+func Execute() error {
+	svcConfig := &service.Config{
+		Name:        "Drop",
+		DisplayName: "Drop",
+		Description: "Broadcasts and listens simultaneously in the background.",
 	}
 
-	return d, nil
+	d := &Daemon{
+		stop: make(chan struct{}),
+		run: func() {
+			// run discovery.LaunchService() and discovery.ServiceBrowser() here
+		},
+	}
+
+	s, err := service.New(d, svcConfig)
+	if err != nil {
+		return err
+	}
+
+	logger, err := s.Logger(nil) // idk if we need a logger but it seems like the best practice to have one
+	if err != nil {
+		return err
+	}
+
+	err = s.Run()
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
+
+	return nil
 }
