@@ -58,7 +58,7 @@ func windowsInstall() error {
 	psScript := fmt.Sprintf(`
 $action = New-ScheduledTaskAction -Execute '%s' -Argument 'win-start'
 $trigger = New-ScheduledTaskTrigger -AtLogOn
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -Compatibility Win8
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -DontStopOnIdleEnd -RestartOnIdle -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Seconds 0)
 Register-ScheduledTask -TaskName 'Drop' -Action $action -Trigger $trigger -Settings $settings -Force
 `, dropwPath)
 
