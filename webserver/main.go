@@ -6,17 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/nishitjha/drop/internal"
 	"github.com/nishitjha/drop/internal/archive"
 	"github.com/pkg/browser"
 	"github.com/spf13/viper"
 	"golang.design/x/clipboard"
-	//"github.com/ncruces/zenity"
-	//"github.com/sqweek/dialog"
 )
 
 type JSONresponse struct {
@@ -24,6 +24,7 @@ type JSONresponse struct {
 }
 
 type AuthRequest struct {
+	RequestID     string
 	SenderName    string
 	SenderUUID    string
 	Response      chan bool
@@ -41,6 +42,25 @@ type confirmModel struct {
 }
 
 var incomingRequests = make(chan AuthRequest)
+
+var pendingMu sync.RWMutex
+var pendingRequests = make(map[string]chan bool)
+
+func addPending(id string, ch chan bool) {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	pendingRequests[id] = ch
+}
+
+func popPending(id string) (chan bool, bool) {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	ch, ok := pendingRequests[id]
+	if ok {
+		delete(pendingRequests, id)
+	}
+	return ch, ok
+}
 
 func Listen(mode string) {
 	gin.SetMode(gin.ReleaseMode)
@@ -122,29 +142,30 @@ func Listen(mode string) {
 			return
 		}
 
-		out, err := os.Create(location)
-		if err != nil {
-			fmt.Println(err)
-			context.JSON(500, JSONresponse{Message: err.Error()})
-			return
-		}
-		defer out.Close()
+		internal.RunSpinner("Getting your file..", func() tea.Msg {
+			out, err := os.Create(location)
+			if err != nil {
+				fmt.Println(err)
+				context.JSON(500, JSONresponse{Message: err.Error()})
+				return internal.TaskResultMsg{}
+			}
+			defer out.Close()
 
-		_, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
+			_, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
+			if err != nil {
+				fmt.Println(err)
+				context.JSON(500, JSONresponse{Message: err.Error()})
+				return internal.TaskResultMsg{}
+			}
 
-		if err != nil {
-			fmt.Println(err)
-			context.JSON(500, JSONresponse{Message: err.Error()})
-			return
-		}
+			return internal.TaskResultMsg{}
+		})
+
 		context.JSON(200, JSONresponse{Message: fmt.Sprintf("File %s uploaded successfully", fileName)})
 		fmt.Printf("%s Received file %s. You can find it at %s.\n", internal.Icons.Positive, fileName, location)
 	})
 
 	router.GET("/request", func(context *gin.Context) {
-
-		path := filepath.Join(os.TempDir(), "drop-debug.log")
-		os.WriteFile(path, []byte("about to open browser\n"), 0644)
 		senderName := context.Query("senderName")
 		senderUUID := context.Query("UUID")
 		fileName := context.Query("fileName")
@@ -152,9 +173,12 @@ func Listen(mode string) {
 		textMode := context.Query("t") == "true"
 		directoryMode := context.Query("d") == "true"
 
+		requestID := uuid.New().String()
 		answerChan := make(chan bool)
+		addPending(requestID, answerChan)
 
 		incomingRequests <- AuthRequest{
+			RequestID:  requestID,
 			SenderName: senderName,
 			SenderUUID: senderUUID,
 			Response:   answerChan,
@@ -176,8 +200,45 @@ func Listen(mode string) {
 				context.JSON(403, JSONresponse{Message: "Declined"})
 			}
 		case <-time.After(3 * time.Minute):
+			popPending(requestID)
 			context.JSON(403, JSONresponse{Message: "Timeout"})
 		}
+	})
+
+	router.GET("/reqweb", func(context *gin.Context) {
+		id := context.Query("id")
+		senderName := context.Query("senderName")
+		fileName := context.Query("fileName")
+
+		html := fmt.Sprintf(`
+<html>
+<body>
+<h2>%s wants to share %s with you.</h2>
+<form action="/reqweb" method="POST">
+<input type="hidden" name="id" value="%s">
+<button type="submit" name="answer" value="true">Yes</button>
+<button type="submit" name="answer" value="false">No</button>
+</form>
+</body>
+</html>
+`, senderName, fileName, id)
+
+		context.Header("Content-Type", "text/html")
+		context.String(200, html)
+	})
+
+	router.POST("/reqweb", func(context *gin.Context) {
+		id := context.PostForm("id")
+		answer := context.PostForm("answer") == "true"
+
+		answerChan, ok := popPending(id)
+		if !ok {
+			context.JSON(404, JSONresponse{Message: "Request not found or already answered"})
+			return
+		}
+
+		answerChan <- answer
+		context.String(200, "You can close this tab now.")
 	})
 
 	router.POST("/archive", func(context *gin.Context) {
@@ -198,7 +259,6 @@ func Listen(mode string) {
 		}
 
 		if format == "zip" {
-			// make sure the receiveDir exists (but MkdirALl will not overwrite it if it already exists)
 			err := os.MkdirAll(receiveDir, os.ModePerm)
 			if err != nil {
 				fmt.Printf("%s Error creating directory: %v\n", internal.Icons.Negative, err)
@@ -208,16 +268,22 @@ func Listen(mode string) {
 
 			archivePath := filepath.Join(receiveDir, fileName)
 
-			out, err := os.Create(archivePath)
-			if err != nil {
-				fmt.Printf("%s Error creating archive file: %v\n", internal.Icons.Negative, err)
-			}
+			internal.RunSpinner("Getting your folder..", func() tea.Msg {
+				out, err := os.Create(archivePath)
+				if err != nil {
+					fmt.Printf("%s Error creating archive file: %v\n", internal.Icons.Negative, err)
+					return internal.TaskResultMsg{}
+				}
 
-			_, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
-			if err != nil {
-				fmt.Printf("%s Error saving archive: %v\n", internal.Icons.Negative, err)
-			}
-			out.Close()
+				_, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
+				if err != nil {
+					fmt.Printf("%s Error saving archive: %v\n", internal.Icons.Negative, err)
+					return internal.TaskResultMsg{}
+				}
+				out.Close()
+
+				return internal.TaskResultMsg{}
+			})
 
 			if autoExtract {
 				err := archive.ExtractArchive(archivePath, receiveDir, fileName)
@@ -231,7 +297,6 @@ func Listen(mode string) {
 
 				context.JSON(200, JSONresponse{Message: fmt.Sprintf("Archive %s uploaded and extracted successfully", fileName)})
 
-				// delete the archive after extraction
 				err = os.Remove(archivePath)
 				if err != nil {
 					fmt.Printf("%s Could not delete the archive after extraction (not fatal). Try deleting it yourself.\n", internal.Icons.Warning)
@@ -249,8 +314,6 @@ func Listen(mode string) {
 	})
 
 	err := router.Run(fmt.Sprintf("0.0.0.0:%d", viper.GetInt("webserver.port")))
-	os.WriteFile(filepath.Join(os.TempDir(), "drop-router-debug.log"),
-		[]byte(fmt.Sprintf("router.Run exited: %v\n", err)), 0644)
 	if err != nil {
 		fmt.Printf("%s Error starting web server: %v\n", internal.Icons.Negative, err)
 	}
@@ -262,18 +325,17 @@ func (m confirmModel) Init() tea.Cmd {
 
 func (m confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			m.quit = true
 			return m, tea.Quit
 		case "left", "right", "up", "down", "tab":
 			m.choice = !m.choice
-		case "enter", " ":
+		case "enter", "space":
 			m.answered = true
 			return m, tea.Quit
 		}
-		// Allow 'y' and 'n' keys for quick response
 		switch msg.String() {
 		case "y":
 			m.choice = true
@@ -288,9 +350,9 @@ func (m confirmModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m confirmModel) View() string {
+func (m confirmModel) View() tea.View {
 	if m.answered || m.quit {
-		return ""
+		return tea.NewView("")
 	}
 
 	s := fmt.Sprintf("\n Do you wish to accept a %s sharing request from \"%s\"?\n\n", func() string {
@@ -329,14 +391,21 @@ func (m confirmModel) View() string {
 		s += "    Yes    [ No ]\n\n"
 	}
 
-	return s
+	return tea.NewView(s)
 }
 
 func HandleRequests(mode string) {
 	for req := range incomingRequests {
 
 		if mode == "daemon" {
-			browser.OpenURL("https://google.com")
+			browser.OpenURL(fmt.Sprintf("http://localhost:%d/reqweb?id=%s&senderName=%s&fileName=%s&fileSize=%d&t=%t&d=%t",
+				viper.GetInt("webserver.port"),
+				req.RequestID,
+				req.SenderName,
+				req.FileName,
+				req.FileSize,
+				req.TextMode,
+				req.DirectoryMode))
 
 		} else {
 			m := confirmModel{

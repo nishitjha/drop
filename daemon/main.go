@@ -51,7 +51,7 @@ func windowsInstall() error {
 
 	dropwPath := filepath.Join(filepath.Dir(exePath), "dropw.exe")
 	if _, err := os.Stat(dropwPath); err != nil {
-		fmt.Printf("%s dropw.exe not found next to drop.exe. You probably forgot to build it.", internal.Icons.Negative)
+		fmt.Printf("%s dropw.exe not found next to drop.exe. You probably forgot to build it. \n", internal.Icons.Negative)
 		return err
 	}
 
