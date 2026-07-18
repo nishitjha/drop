@@ -56,9 +56,9 @@ func windowsInstall() error {
 	}
 
 	psScript := fmt.Sprintf(`
-$action = New-ScheduledTaskAction -Execute '%s' -Argument 'win-start'
+$action = New-ScheduledTaskAction -Execute '%s' -Argument 'service win-start'
 $trigger = New-ScheduledTaskTrigger -AtLogOn
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -DontStopOnIdleEnd -RestartOnIdle -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Seconds 0)
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -DontStopOnIdleEnd -RestartOnIdle -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Seconds 0) -DisallowHardTerminate
 Register-ScheduledTask -TaskName 'Drop' -Action $action -Trigger $trigger -Settings $settings -Force
 `, dropwPath)
 
@@ -145,10 +145,18 @@ func Execute(action string) error {
 
 func runFunc() func() {
 	return func() {
+		defer func() {
+			if r := recover(); r != nil {
+				os.WriteFile(filepath.Join(os.TempDir(), "drop-panic-debug.log"),
+					[]byte(fmt.Sprintf("panic: %v\n", r)), 0644)
+			}
+		}()
 		discovery.Initialize()
 		discovery.LaunchService()
 		go discovery.ServiceBrowser()
 
+		os.WriteFile(filepath.Join(os.TempDir(), "drop-panic-debug.log"),
+			[]byte(fmt.Sprintf("stuff")), 0644)
 		webserver.Listen("daemon")
 	}
 }

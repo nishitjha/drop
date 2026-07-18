@@ -249,6 +249,8 @@ func Listen(mode string) {
 	})
 
 	err := router.Run(fmt.Sprintf("0.0.0.0:%d", viper.GetInt("webserver.port")))
+	os.WriteFile(filepath.Join(os.TempDir(), "drop-router-debug.log"),
+		[]byte(fmt.Sprintf("router.Run exited: %v\n", err)), 0644)
 	if err != nil {
 		fmt.Printf("%s Error starting web server: %v\n", internal.Icons.Negative, err)
 	}
