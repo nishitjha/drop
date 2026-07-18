@@ -55,15 +55,18 @@ func windowsInstall() error {
 		return err
 	}
 
-	createCmd := exec.Command("schtasks", "/create", "/tn", "Drop",
-		"/tr", fmt.Sprintf(`"%s" service win-start`, dropwPath),
-		"/sc", "onlogon", "/f")
+	psScript := fmt.Sprintf(`
+$action = New-ScheduledTaskAction -Execute '%s' -Argument 'win-start'
+$trigger = New-ScheduledTaskTrigger -AtLogOn
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -Compatibility Win8
+Register-ScheduledTask -TaskName 'Drop' -Action $action -Trigger $trigger -Settings $settings -Force
+`, dropwPath)
 
-	if err := createCmd.Run(); err != nil {
-		fmt.Printf("%s Failed to create scheduled task: %v\n", internal.Icons.Negative, createCmd)
+	cmd := exec.Command("powershell", "-NoProfile", "-Command", psScript)
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("%s Failed to create scheduled task: %v\n", internal.Icons.Negative, cmd)
 		return err
 	}
-
 	return exec.Command("schtasks", "/run", "/tn", "Drop").Run()
 }
 
