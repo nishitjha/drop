@@ -145,18 +145,10 @@ func Execute(action string) error {
 
 func runFunc() func() {
 	return func() {
-		defer func() {
-			if r := recover(); r != nil {
-				os.WriteFile(filepath.Join(os.TempDir(), "drop-panic-debug.log"),
-					[]byte(fmt.Sprintf("panic: %v\n", r)), 0644)
-			}
-		}()
 		discovery.Initialize()
 		discovery.LaunchService()
 		go discovery.ServiceBrowser()
 
-		os.WriteFile(filepath.Join(os.TempDir(), "drop-panic-debug.log"),
-			[]byte(fmt.Sprintf("stuff")), 0644)
 		webserver.Listen("daemon")
 	}
 }
