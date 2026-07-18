@@ -13,6 +13,16 @@ import (
 	"github.com/nishitjha/drop/webserver"
 )
 
+// getting a little messy here so I'll exlplain it to future me here
+// windows does not allow services that are spawned programatically to actually interact w the desktop
+// so even though you can launch a service and have it broadcast and whatnot, that service in itself will not be able to convey anything to the user if a request comes through
+// i don't think unix has this problem but then again i haven't tested it yet
+// a solution I found was to use the windows task scheduler to launch the daemon directly in the background
+// note that this does not make use of kardianos/service (on windows)
+// win-start (used by schtasks) runs the daemon directly in the background and can interact with the desktop
+// internal-run is for unix systems where kardianos/service is used to make it a proper service
+// all other commands are user-facing
+
 type Daemon struct {
 	stop chan struct{}
 
@@ -33,8 +43,6 @@ func (d *Daemon) Stop(s service.Service) error {
 	return nil
 }
 
-const windowsTaskName = "Drop"
-
 func windowsInstall() error {
 	exePath, err := os.Executable()
 	if err != nil {
@@ -47,23 +55,16 @@ func windowsInstall() error {
 		return err
 	}
 
-	createCmd := exec.Command("schtasks", "/create", "/tn", windowsTaskName,
-		"/tr", fmt.Sprintf(`"%s" service install`, dropwPath),
+	createCmd := exec.Command("schtasks", "/create", "/tn", "Drop",
+		"/tr", fmt.Sprintf(`"%s" service win-start`, dropwPath),
 		"/sc", "onlogon", "/f")
+
 	if err := createCmd.Run(); err != nil {
 		fmt.Printf("%s Failed to create scheduled task: %v\n", internal.Icons.Negative, createCmd)
 		return err
 	}
 
-	return exec.Command("schtasks", "/run", "/tn", windowsTaskName).Run()
-}
-
-func windowsUninstall() error {
-	return exec.Command("schtasks", "/delete", "/tn", windowsTaskName, "/f").Run()
-}
-
-func windowsKill() error {
-	return exec.Command("schtasks", "/end", "/tn", windowsTaskName).Run()
+	return exec.Command("schtasks", "/run", "/tn", "Drop").Run()
 }
 
 func Execute(action string) error {
@@ -72,12 +73,12 @@ func Execute(action string) error {
 		case "install":
 			return windowsInstall()
 		case "start":
-			return exec.Command("schtasks", "/run", "/tn", windowsTaskName).Run()
+			return exec.Command("schtasks", "/run", "/tn", "Drop").Run()
 		case "kill":
-			return windowsKill()
+			return exec.Command("schtasks", "/end", "/tn", "Drop").Run()
 		case "uninstall":
-			windowsKill()
-			return windowsUninstall()
+			exec.Command("schtasks", "/end", "/tn", "Drop").Run()
+			return exec.Command("schtasks", "/delete", "/tn", "Drop", "/f").Run()
 		case "win-start":
 			d := &Daemon{
 				stop: make(chan struct{}),
@@ -92,7 +93,7 @@ func Execute(action string) error {
 	svcConfig := &service.Config{
 		Name:        "Drop",
 		DisplayName: "Drop",
-		Description: "Broadcasts and listens simultaneously in the background.",
+		Description: "i made poopy in my pants",
 		Arguments:   []string{"service", "internal-run"},
 		Option: service.KeyValue{
 			"UserService": true,
@@ -128,7 +129,7 @@ func Execute(action string) error {
 
 	case "internal-run":
 		logger, _ := s.Logger(nil)
-		fmt.Println("Running Drop service...")
+		fmt.Println("Running Drop...")
 
 		if err := s.Run(); err != nil {
 			logger.Error(err)

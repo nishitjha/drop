@@ -399,16 +399,16 @@ var service = &cobra.Command{
 				fmt.Printf("%s Ran into a problem: %v\n", internal.Icons.Negative, err)
 				return
 			}
-			fmt.Printf("%s Successfully %s the Drop daemon.\n", internal.Icons.Positive, func() string {
+			fmt.Printf("%s Successfully %s the Drop daemon. You can close this terminal now.\n", internal.Icons.Positive, func() string {
 				switch action {
 				case "install", "i":
-					return "installed"
+					return "installed and started"
 				case "start", "s":
 					return "started"
 				case "kill", "k":
 					return "stopped"
 				case "uninstall", "u":
-					return "uninstalled"
+					return "stopped and uninstalled"
 				default:
 					return ""
 				}
