@@ -17,13 +17,14 @@ var (
 	Domain       string
 	Port         int
 	Metadata     []string
-	UUID string
+	UUID         string
 )
+
 func Initialize() {
 	InstanceName = viper.GetString("discovery.instanceName")
-	ServiceName  = viper.GetString("discovery.advanced.serviceName")
-	Domain       = viper.GetString("discovery.advanced.domain")
-	Port         = viper.GetInt("discovery.advanced.port")
+	ServiceName = viper.GetString("discovery.advanced.serviceName")
+	Domain = viper.GetString("discovery.advanced.domain")
+	Port = viper.GetInt("discovery.advanced.port")
 	UUID = viper.GetString("discovery.advanced.deviceUUID")
 }
 
@@ -87,7 +88,7 @@ func ServiceBrowser() {
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func(results <-chan *zeroconf.ServiceEntry) {
 		for entry := range results {
-			
+
 			if entry.Instance == InstanceName {
 				continue //to ignore one's own broadcasts
 			}
