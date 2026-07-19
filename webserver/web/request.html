@@ -6,15 +6,19 @@
     <link rel="stylesheet" href="/static/request.css">
 </head>
 <body>
-    <h1>Accept a {{ if .directoryMode }}<span class="type type-folder">folder</span>{{ else if .textMode }}<span class="type type-textsnippet">text snippet</span>{{ else }}<span class="type type-file">file</span>{{ end }}<br>from <span class="sender">{{ .sender }}</span>?</h1>
-    <div class="details">
-        File name: <span class="detail-value">{{ .fileName }}</span><br>
-        File size: <span class="detail-value">{{ formatBytes .fileSize }}</span><br>
+    <div class="container">
+        <div class="content">
+            <h1>Accept a {{ if .directoryMode }}<span class="type type-folder">folder</span>{{ else if .textMode }}<span class="type type-textsnippet">text snippet</span>{{ else }}<span class="type type-file">file</span>{{ end }}<br>from {{ .sender }}?</h1>
+            <div class="details">
+                File name: <span class="detail-value">{{ .fileName }}</span><br>
+                File size: <span class="detail-value">{{ formatBytes .fileSize }}</span>
+            </div>
+        </div>
+        <form class="actions" action="/reqweb" method="POST">
+            <input type="hidden" name="id" value="{{ .id }}">
+            <button type="submit" name="answer" value="true">Accept</button>
+            <button type="submit" name="answer" value="false">Decline</button>
+        </form>
     </div>
-    <form action="/reqweb" method="POST">
-        <input type="hidden" name="id" value="{{ .id }}">
-        <button type="submit" name="answer" value="true">Yes</button>
-        <button type="submit" name="answer" value="false">No</button>
-    </form>
 </body>
 </html>
