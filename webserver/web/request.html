@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ .title }}</title>
+    <link rel="stylesheet" href="/static/request.css">
 </head>
 <body>
-    <div>Do you wish to</div>
-    <h1>accept a {{ if .directoryMode }}directory{{ else if .textMode }}text{{ else }}file{{ end }} sharing request from {{ .sender }}?</h1>
-    <div>
-        File name: {{ .fileName }}<br>
-        File size: {{ formatBytes .fileSize }}<br>
+    <h1>Accept a {{ if .directoryMode }}<span class="type type-folder">folder</span>{{ else if .textMode }}<span class="type type-textsnippet">text snippet</span>{{ else }}<span class="type type-file">file</span>{{ end }}<br>from <span class="sender">{{ .sender }}</span>?</h1>
+    <div class="details">
+        File name: <span class="detail-value">{{ .fileName }}</span><br>
+        File size: <span class="detail-value">{{ formatBytes .fileSize }}</span><br>
     </div>
     <form action="/reqweb" method="POST">
         <input type="hidden" name="id" value="{{ .id }}">

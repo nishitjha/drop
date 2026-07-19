@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,9 +50,8 @@ var incomingRequests = make(chan AuthRequest)
 var pendingMu sync.RWMutex
 var pendingRequests = make(map[string]chan bool)
 
-//go:embed web/request.html
+//go:embed web
 var webFS embed.FS
-
 var reqwebTemplate = template.Must(
 	template.New("request.html").
 		Funcs(template.FuncMap{"formatBytes": internal.FormatBytes}).
@@ -78,6 +79,11 @@ func Listen(mode string) {
 	router := gin.Default()
 	go HandleRequests(mode)
 
+	webSub, err := fs.Sub(webFS, "web")
+	if err != nil {
+		fmt.Println(err)
+	}
+	router.StaticFS("/static", http.FS(webSub))
 	// router.SetFuncMap(template.FuncMap{
 	// 	"formatBytes": internal.FormatBytes,
 	// })
@@ -329,7 +335,7 @@ func Listen(mode string) {
 
 	})
 
-	err := router.Run(fmt.Sprintf("0.0.0.0:%d", viper.GetInt("webserver.port")))
+	err = router.Run(fmt.Sprintf("0.0.0.0:%d", viper.GetInt("webserver.port")))
 	if err != nil {
 		fmt.Printf("%s Error starting web server: %v\n", internal.Icons.Negative, err)
 	}
