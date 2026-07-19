@@ -1,7 +1,9 @@
 package webserver
 
 import (
+	"embed"
 	"fmt"
+	"html/template"
 	"io"
 	"os"
 	"path/filepath"
@@ -46,6 +48,15 @@ var incomingRequests = make(chan AuthRequest)
 var pendingMu sync.RWMutex
 var pendingRequests = make(map[string]chan bool)
 
+//go:embed web/request.html
+var webFS embed.FS
+
+var reqwebTemplate = template.Must(
+	template.New("request.html").
+		Funcs(template.FuncMap{"formatBytes": internal.FormatBytes}).
+		ParseFS(webFS, "web/request.html"),
+)
+
 func addPending(id string, ch chan bool) {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
@@ -66,6 +77,11 @@ func Listen(mode string) {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	go HandleRequests(mode)
+
+	// router.SetFuncMap(template.FuncMap{
+	// 	"formatBytes": internal.FormatBytes,
+	// })
+	// router.LoadHTMLGlob("../web/*")
 
 	router.POST("/upload", func(context *gin.Context) {
 		receiveDir := viper.GetString("sharing.receiveDir")
@@ -209,22 +225,22 @@ func Listen(mode string) {
 		id := context.Query("id")
 		senderName := context.Query("senderName")
 		fileName := context.Query("fileName")
+		textMode := context.Query("t") == "true"
+		directoryMode := context.Query("d") == "true"
 
-		html := fmt.Sprintf(`
-<html>
-<body>
-<h2>%s wants to share %s with you.</h2>
-<form action="/reqweb" method="POST">
-<input type="hidden" name="id" value="%s">
-<button type="submit" name="answer" value="true">Yes</button>
-<button type="submit" name="answer" value="false">No</button>
-</form>
-</body>
-</html>
-`, senderName, fileName, id)
+		var fileSize int64
+		fmt.Sscanf(context.Query("fileSize"), "%d", &fileSize)
 
 		context.Header("Content-Type", "text/html")
-		context.String(200, html)
+		reqwebTemplate.Execute(context.Writer, gin.H{
+			"title":         "Drop Sharing Request",
+			"sender":        senderName,
+			"fileName":      fileName,
+			"fileSize":      fileSize,
+			"textMode":      textMode,
+			"directoryMode": directoryMode,
+			"id":            id,
+		})
 	})
 
 	router.POST("/reqweb", func(context *gin.Context) {

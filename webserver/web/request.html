@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ .title }}</title>
+</head>
+<body>
+    <div>Do you wish to</div>
+    <h1>accept a {{ if .directoryMode }}directory{{ else if .textMode }}text{{ else }}file{{ end }} sharing request from {{ .sender }}?</h1>
+    <div>
+        File name: {{ .fileName }}<br>
+        File size: {{ formatBytes .fileSize }}<br>
+    </div>
+    <form action="/reqweb" method="POST">
+        <input type="hidden" name="id" value="{{ .id }}">
+        <button type="submit" name="answer" value="true">Yes</button>
+        <button type="submit" name="answer" value="false">No</button>
+    </form>
+</body>
+</html>
