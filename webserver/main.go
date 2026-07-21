@@ -164,24 +164,31 @@ func Listen(mode string) {
 			return
 		}
 
-		internal.RunSpinner("Getting your file..", func() tea.Msg {
+		writeFile := func() error {
 			out, err := os.Create(location)
 			if err != nil {
-				fmt.Println(err)
-				context.JSON(500, JSONresponse{Message: err.Error()})
-				return internal.TaskResultMsg{}
+				return err
 			}
 			defer out.Close()
 
 			_, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
-			if err != nil {
-				fmt.Println(err)
-				context.JSON(500, JSONresponse{Message: err.Error()})
-				return internal.TaskResultMsg{}
-			}
+			return err
+		}
 
-			return internal.TaskResultMsg{}
-		})
+		if mode == "daemon" {
+			err = writeFile()
+		} else {
+			result := internal.RunSpinner("Getting your file..", func() tea.Msg {
+				return internal.TaskResultMsg{Error: writeFile()}
+			})
+			err = result.Error
+		}
+
+		if err != nil {
+			fmt.Println(err)
+			context.JSON(500, JSONresponse{Message: err.Error()})
+			return
+		}
 
 		context.JSON(200, JSONresponse{Message: fmt.Sprintf("File %s uploaded successfully", fileName)})
 		fmt.Printf("%s Received file %s. You can find it at %s.\n", internal.Icons.Positive, fileName, location)
@@ -290,22 +297,31 @@ func Listen(mode string) {
 
 			archivePath := filepath.Join(receiveDir, fileName)
 
-			internal.RunSpinner("Getting your folder..", func() tea.Msg {
+			writeArchive := func() error {
 				out, err := os.Create(archivePath)
 				if err != nil {
-					fmt.Printf("%s Error creating archive file: %v\n", internal.Icons.Negative, err)
-					return internal.TaskResultMsg{}
+					return err
 				}
+				defer out.Close()
 
 				_, err = io.CopyBuffer(out, context.Request.Body, make([]byte, 1024*1024))
-				if err != nil {
-					fmt.Printf("%s Error saving archive: %v\n", internal.Icons.Negative, err)
-					return internal.TaskResultMsg{}
-				}
-				out.Close()
+				return err
+			}
 
-				return internal.TaskResultMsg{}
-			})
+			if mode == "daemon" {
+				err = writeArchive()
+			} else {
+				result := internal.RunSpinner("Getting your folder..", func() tea.Msg {
+					return internal.TaskResultMsg{Error: writeArchive()}
+				})
+				err = result.Error
+			}
+
+			if err != nil {
+				fmt.Printf("%s Error saving archive: %v\n", internal.Icons.Negative, err)
+				context.JSON(500, JSONresponse{Message: "Something went wrong."})
+				return
+			}
 
 			if autoExtract {
 				err := archive.ExtractArchive(archivePath, receiveDir, fileName)
