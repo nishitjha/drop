@@ -25,7 +25,6 @@ func Launch() error {
 	// default receive directory is ~/Downloads/Drop
 	// but i'm wondering if one should have the option to have the file saved to the current working directory
 	viper.SetDefault("sharing.receiveDir", filepath.Join(home, "Downloads", "Drop"))
-	viper.SetDefault("sharing.isDiscoverable", true)
 	viper.SetDefault("sharing.askReceiveDirEverytime", false)
 	viper.SetDefault("sharing.trustAllDevices", false)
 	viper.SetDefault("sharing.askToTrustEverytime", true)

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,8 @@ type AuthRequest struct {
 	FileSize      int64
 	TextMode      bool
 	DirectoryMode bool
+	Trusted       bool
+	Context       *gin.Context
 }
 
 type confirmModel struct {
@@ -202,6 +205,12 @@ func Listen(mode string) {
 		textMode := context.Query("t") == "true"
 		directoryMode := context.Query("d") == "true"
 
+		trustedUUIDs := viper.GetStringSlice("sharing.trustedDevices")
+		var trustedSender bool = false
+		if slices.Contains(trustedUUIDs, senderUUID) || viper.GetBool("sharing.trustAllDevices") {
+			trustedSender = true
+		}
+
 		requestID := uuid.New().String()
 		answerChan := make(chan bool)
 		addPending(requestID, answerChan)
@@ -219,6 +228,8 @@ func Listen(mode string) {
 			}(),
 			TextMode:      textMode,
 			DirectoryMode: directoryMode,
+			Trusted:       trustedSender,
+			Context:       context,
 		}
 
 		select {
@@ -392,7 +403,6 @@ func (m confirmModel) View() tea.View {
 	if m.answered || m.quit {
 		return tea.NewView("")
 	}
-
 	s := fmt.Sprintf("\n Do you wish to accept a %s sharing request from \"%s\"?\n\n", func() string {
 		if m.req.TextMode {
 			return internal.TextStyle.Render("text")
@@ -436,6 +446,16 @@ func HandleRequests(mode string) {
 	for req := range incomingRequests {
 
 		if mode == "daemon" {
+			if req.Trusted {
+				answerChan, ok := popPending(req.RequestID)
+				if !ok {
+					req.Context.JSON(404, JSONresponse{Message: "Request not found or already answered"})
+					continue
+				}
+				answerChan <- true
+				continue
+			}
+
 			browser.OpenURL(fmt.Sprintf("http://localhost:%d/reqweb?id=%s&senderName=%s&fileName=%s&fileSize=%d&t=%t&d=%t",
 				viper.GetInt("webserver.port"),
 				req.RequestID,
@@ -444,8 +464,27 @@ func HandleRequests(mode string) {
 				req.FileSize,
 				req.TextMode,
 				req.DirectoryMode))
-
 		} else {
+			if req.Trusted {
+				fmt.Printf("%s Automatically accepted sharing request from trusted device \"%s\".\n", internal.Icons.Positive, req.SenderName)
+				fmt.Printf(" - %s name: %s\n", func() string {
+					if req.DirectoryMode {
+						return "Folder"
+					}
+					return "File"
+				}(), req.FileName)
+				fmt.Printf(" - %s size: %s\n\n", func() string {
+					if req.DirectoryMode {
+						return "Folder"
+					}
+					return "File"
+				}(), func() string {
+					if req.DirectoryMode {
+						return "unknown"
+					}
+					return internal.FormatBytes(req.FileSize)
+				}())
+			}
 			m := confirmModel{
 				req:    req,
 				choice: true,

@@ -56,8 +56,7 @@ var list = &cobra.Command{
 		internal.RunSpinner("Scanning for devices...", func() tea.Msg {
 			go discovery.ServiceBrowser()
 			time.Sleep(2 * time.Second)
-			discovery.RetrieveDevices()
-			devices = discovery.Devices.List()
+			devices = discovery.RetrieveDevices()
 			return internal.TaskResultMsg{}
 		})
 
@@ -102,11 +101,8 @@ var share = &cobra.Command{
 		}
 
 		go discovery.ServiceBrowser()
-
 		time.Sleep(2 * time.Second)
-		discovery.RetrieveDevices()
-
-		devices := discovery.Devices.List()
+		devices := discovery.RetrieveDevices()
 
 		if len(devices) == 0 {
 			fmt.Printf("%s Couldn't find any devices on your network. Make sure they're running Drop and try again.\n", internal.Icons.Negative)
@@ -312,7 +308,6 @@ var config = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var description = map[string]string{
 			"sharing.receiveDir":                 "Default folder where incoming files are saved.",
-			"sharing.isDiscoverable":             "Choose whether this device is visible to others on the network via mDNS.",
 			"sharing.askReceiveDirEverytime":     "Choose whether you should be asked where to save incoming files everytime instead of using the default.",
 			"sharing.trustAllDevices":            "Skip confirmation prompts and accept requests from all devices automatically.",
 			"sharing.trustedDevices":             "Set of devices allowed to send files without you having to accept a sharing request.",

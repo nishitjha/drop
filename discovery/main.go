@@ -182,15 +182,17 @@ func RetrieveDevices() map[string]Device {
 			// device is in file cache but not in memory cache, check if it's stale
 			var device Device
 			if err := InternalViper.UnmarshalKey(deviceUUID, &device); err != nil {
+				fmt.Println("unmarshal failed:", err) // temporary debug line
 				continue
 			}
 
-			if time.Since(device.LastSeenTime) > 5*time.Minute {
-				// to be implemented
-				InternalViper.Set(deviceUUID, nil)
-				continue
-			}
+			// if time.Since(device.LastSeenTime) > 5*time.Minute {
+			// 	// to be implemented
+			// 	InternalViper.Set(deviceUUID, nil)
+			// 	continue
+			// }
 
+			Devices.Update(device)
 			memDevices[deviceUUID] = device
 		}
 	}
