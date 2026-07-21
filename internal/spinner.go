@@ -3,7 +3,6 @@ package internal
 import (
 	"fmt"
 	"net/http"
-	"os"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
@@ -32,7 +31,9 @@ func (m SpinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
-			os.Exit(0)
+			m.Result = TaskResultMsg{}
+			m.Quitting = true
+			return m, tea.Quit
 		}
 	case TaskResultMsg:
 		m.Result = msg
