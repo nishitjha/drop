@@ -18,18 +18,18 @@ const (
 
 var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 
-func Launch(deviceAddress string, deviceName string, filePath string, textSnippet string) {
+func Launch(deviceAddress string, deviceName string, filePath string, textSnippet string, devicePort string) {
 	m := ProgressModel{
 		Progress:      progress.New(progress.WithDefaultBlend()),
 		DeviceAddress: deviceAddress,
 		DeviceName:    deviceName,
 		FilePath:      filePath,
-		TextSnippet:    textSnippet,
+		TextSnippet:   textSnippet,
 	}
 
 	p := tea.NewProgram(m)
 
-	go StreamFile(deviceAddress, deviceName, filePath, p, textSnippet)
+	go StreamFile(deviceAddress, deviceName, filePath, p, textSnippet, devicePort)
 
 	finalModel, err := p.Run()
 	if err != nil {
@@ -61,7 +61,7 @@ type ProgressModel struct {
 	DeviceAddress string
 	DeviceName    string
 	FilePath      string
-	TextSnippet    string
+	TextSnippet   string
 	Status        string
 	Log           []string
 	Done          bool

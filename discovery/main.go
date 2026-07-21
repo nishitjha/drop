@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/grandcat/zeroconf"
 	"github.com/nishitjha/drop/internal"
 	"github.com/spf13/viper"
@@ -34,6 +33,7 @@ type Device struct {
 	Status      int    // 0 and 1 corresponding to open-to-requests and busy (already sharing or DND)
 	LastUpdated int    // time in seconds since last update
 	UUID        string // unique permanent identifier for the device, does not change even if the device name changes
+	Port        string // port on which the device is listening for incoming requests
 }
 
 type Cache struct {
@@ -66,7 +66,7 @@ func LaunchService() *zeroconf.Server {
 		ServiceName,
 		Domain,
 		Port,
-		[]string{UUID},
+		[]string{UUID, fmt.Sprintf("%d", viper.GetInt("webserver.port"))},
 		nil, // auto-select from interfaces idk I'm not doing allat
 	)
 
@@ -103,22 +103,12 @@ func ServiceBrowser() {
 				Address:     entry.AddrIPv4[0].String(),
 				Status:      0,
 				LastUpdated: 0,
-				UUID:        entry.Text[0], //newly generated each time for now, but should be a permanent identifier for the device in the future
+				UUID:        entry.Text[0],
+				Port:        entry.Text[1], // the port on which the device is listening for incoming requests
 			})
 
 		}
 	}(entries)
-
-	//dummy devices for testing locally
-	for i := 0; i < 4; i++ {
-		Devices.Update(Device{
-			DeviceName:  fmt.Sprintf("Test Device %d", i),
-			Address:     fmt.Sprintf("192.168.0.%d", i+2),
-			Status:      0,
-			LastUpdated: 0,
-			UUID:        uuid.New().String(),
-		})
-	}
 
 	err = resolver.Browse(context.Background(), ServiceName, Domain, entries)
 

@@ -36,18 +36,17 @@ func (cr *customReader) WriteTo(w io.Writer) (int64, error) {
 func (progWriter *ProgressWriter) Write(p []byte) (n int, err error) {
 	progWriter.TotalBytes += int64(len(p))
 	now := time.Now()
-    if now.Sub(progWriter.LastSent) >= 100*time.Millisecond || progWriter.TotalBytes == progWriter.FileSize {
-        progWriter.Program.Send(progressMsg{Decimal: float64(progWriter.TotalBytes) / float64(progWriter.FileSize)})
-        progWriter.LastSent = now
-    }
+	if now.Sub(progWriter.LastSent) >= 100*time.Millisecond || progWriter.TotalBytes == progWriter.FileSize {
+		progWriter.Program.Send(progressMsg{Decimal: float64(progWriter.TotalBytes) / float64(progWriter.FileSize)})
+		progWriter.LastSent = now
+	}
 	return len(p), nil
 }
 
-
-func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program, textSnippet string) error {
+func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program, textSnippet string, devicePort string) error {
 	if textSnippet != "" {
 		httpClient := &http.Client{}
-		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), strings.NewReader(textSnippet))
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:%s/upload", deviceAddress, devicePort), strings.NewReader(textSnippet))
 
 		if err != nil {
 			program.Send(doneMsg{Err: err})
@@ -58,7 +57,7 @@ func StreamFile(deviceAddress string, deviceName string, filePath string, progra
 		req.Header.Set("X-TextSnippet", "true")
 
 		response, err := httpClient.Do(req)
-		
+
 		if err != nil {
 			program.Send(doneMsg{Err: err})
 			return fmt.Errorf("%s Error sending text snippet: %v", Icons.Negative, err)
@@ -69,7 +68,7 @@ func StreamFile(deviceAddress string, deviceName string, filePath string, progra
 			program.Send(doneMsg{Err: fmt.Errorf("Failed to send text snippet. Status code: %d", response.StatusCode)})
 			return nil
 		}
-		
+
 		program.Send(doneMsg{Message: fmt.Sprintf("%s The text snippet has been sent successfully to \"%s\".", Icons.Positive, deviceName)})
 		return nil
 	}
@@ -91,7 +90,7 @@ func StreamFile(deviceAddress string, deviceName string, filePath string, progra
 	reader := io.TeeReader(file, &ProgressWriter{TotalBytes: 0, FileSize: fileInfo.Size(), Program: program})
 	bodyReader := &customReader{r: reader, buf: make([]byte, 1024*1024)}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/upload", deviceAddress), bodyReader)
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:%s/upload", deviceAddress, devicePort), bodyReader)
 	if err != nil {
 		program.Send(doneMsg{Err: err})
 		return fmt.Errorf("%s Error creating request: %v", Icons.Negative, err)
@@ -102,8 +101,8 @@ func StreamFile(deviceAddress string, deviceName string, filePath string, progra
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			WriteBufferSize: 1024 * 1024,
-			ReadBufferSize: 1024 * 1024,
-	},
+			ReadBufferSize:  1024 * 1024,
+		},
 	}
 	response, err := httpClient.Do(req)
 	if err != nil {

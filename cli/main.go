@@ -145,7 +145,7 @@ var share = &cobra.Command{
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 				defer cancel()
 
-				reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&t=%v&UUID=%s", targetDevice.Address, discovery.InstanceName, true, targetDevice.UUID)
+				reqURL := fmt.Sprintf("http://%s:%s/request?senderName=%s&t=%v&UUID=%s", targetDevice.Address, targetDevice.Port, discovery.InstanceName, true, targetDevice.UUID)
 
 				req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 				if err != nil {
@@ -167,7 +167,7 @@ var share = &cobra.Command{
 			if result.Response.StatusCode == http.StatusOK {
 				fmt.Printf("%s Great success! \"%s\" accepted your text sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
 
-				internal.Launch(targetDevice.Address, targetDevice.DeviceName, "", textSnippet)
+				internal.Launch(targetDevice.Address, targetDevice.DeviceName, "", textSnippet, targetDevice.Port)
 			} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
 				fmt.Printf("%s What a fucking loser. \"%s\" declined your text sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)
 			}
@@ -206,7 +206,7 @@ var share = &cobra.Command{
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
 
-			reqURL := fmt.Sprintf("http://%s:3000/request?senderName=%s&t=%v&d=%v&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, discovery.InstanceName, false, dirMode, targetDevice.UUID, func() string {
+			reqURL := fmt.Sprintf("http://%s:%s/request?senderName=%s&t=%v&d=%v&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, targetDevice.Port, discovery.InstanceName, false, dirMode, targetDevice.UUID, func() string {
 				if len(args) > 1 {
 					return fileInfo.Name()
 				}
@@ -248,11 +248,11 @@ var share = &cobra.Command{
 				}
 
 				if info.IsDir() {
-					archive.Execute(args[1], targetDevice.Address, targetDevice.DeviceName)
+					archive.Execute(args[1], targetDevice.Address, targetDevice.DeviceName, targetDevice.Port)
 					return
 				}
 
-				internal.Launch(targetDevice.Address, targetDevice.DeviceName, args[1], "")
+				internal.Launch(targetDevice.Address, targetDevice.DeviceName, args[1], "", targetDevice.Port)
 				return
 			}
 
@@ -305,11 +305,11 @@ var share = &cobra.Command{
 			}
 
 			if info.IsDir() {
-				archive.Execute(selectedModel.SelectedFile, targetDevice.Address, targetDevice.DeviceName)
+				archive.Execute(selectedModel.SelectedFile, targetDevice.Address, targetDevice.DeviceName, targetDevice.Port)
 				return
 			}
 
-			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedModel.SelectedFile, "")
+			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedModel.SelectedFile, "", targetDevice.Port)
 
 		} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
 			fmt.Printf("%s What a fucking loser. \"%s\" declined your sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)

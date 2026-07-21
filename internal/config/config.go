@@ -38,21 +38,22 @@ func Launch() error {
 	viper.SetDefault("sharing.advanced.enableTransferLog", true)
 	viper.SetDefault("sharing.advanced.logFilePath", filepath.Join(home, ".drop_history.log"))
 
-	viper.SetDefault("sharing.folders.archiveFormat", func () string {
+	viper.SetDefault("sharing.folders.archiveFormat", func() string {
 		switch runtime.GOOS {
 		case "windows":
 			return "zip"
 		case "darwin", "linux":
-			return "tar.gz"
+			//return "tar.gz"
+			return "zip" // just for now, will implement later i promise
 		default:
 			return "zip"
 		}
-	}) 
+	}())
 	// using zip is better for cross-platform compatibility, but tar.gz is better for speed
 	// using archive/tar also allows for write-as-you-receive streaming on the webserver endpoint while zip does not
 	// so it is worth mentioning that if the user is not on windows, they should probably use tar.gz instead of zip
 
-	viper.SetDefault("sharing.folders.compressionLevel", 0)  // 0 is no compression, 1 is best speed w minimal compression and so on till 3
+	viper.SetDefault("sharing.folders.compressionLevel", 0) // 0 is no compression, 1 is best speed w minimal compression and so on till 3
 	// most users are fucking morons and will probably think "omg yeah i wanna compress my files so that they take lesser time to stream across"
 	// but compression is very CPU intensive and will actually slow it down for most users
 	// imo for users with a fast internet connection, compression is a waste of CPU cycles and the bandwidth is not the bottleneck
@@ -65,7 +66,7 @@ func Launch() error {
 	// will also exclude .zip, .tar.gz, .rar, .7z and other archive formats
 	// from what i read online compression (if turned on at all) is helpful only for .txt, .json, .xml, .csv and other text-based files
 	// it will also EXCLUDE directories like node_modules, .git, .svn, .hg, .vscode, .idea etc to save time
-	viper.SetDefault("sharing.folders.autoExtractOnReceive", true)  
+	viper.SetDefault("sharing.folders.autoExtractOnReceive", true)
 
 	viper.SetDefault("discovery.instanceName", hostname)
 	viper.SetDefault("discovery.advanced.serviceName", "_drop._tcp")

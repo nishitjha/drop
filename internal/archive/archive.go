@@ -32,7 +32,7 @@ func getCompressionLevel(level int) int {
 	}
 }
 
-func Execute(sourceDir string, targetAddress string, targetDeviceName string) {
+func Execute(sourceDir string, targetAddress string, targetDeviceName string, targetPort string) {
 	archiveFormat := viper.GetString("sharing.folders.archiveFormat")
 
 	if archiveFormat == "zip" && (runtime.GOOS == "linux" || runtime.GOOS == "darwin") {
@@ -41,19 +41,19 @@ func Execute(sourceDir string, targetAddress string, targetDeviceName string) {
 
 	pr, pw := io.Pipe()
 
-	go func () {
+	go func() {
 		err := ArchiveDirectoryToZip(sourceDir, pw)
-		
+
 		if err != nil {
 			fmt.Printf("%s Error archiving directory \"%s\": %v.\n", internal.Icons.Negative, sourceDir, err)
 			pw.CloseWithError(err)
-			return 
+			return
 		}
 
 		pw.Close()
 	}()
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:3000/archive?format=%s", targetAddress, archiveFormat), pr)
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:%s/archive?format=%s", targetAddress, targetPort, archiveFormat), pr)
 	if err != nil {
 		fmt.Printf("%s Error creating request to send directory \"%s\" to device \"%s\": %v.\n", internal.Icons.Negative, sourceDir, targetDeviceName, err)
 		return
@@ -77,13 +77,13 @@ func Execute(sourceDir string, targetAddress string, targetDeviceName string) {
 		fmt.Printf("%s The directory \"%s\" has been sent successfully to \"%s\".\n", internal.Icons.Positive, sourceDir, targetDeviceName)
 		return
 	}
-} 
+}
 
 func ArchiveDirectoryToZip(sourceDir string, destination io.Writer) error {
 	// archive, err := os.Create(fmt.Sprintf("%s_drop.zip", sourceDir))
-	// if err != nil {  
+	// if err != nil {
 	// 	return err
-	
+
 	// }
 	// defer archive.Close()
 
@@ -94,7 +94,7 @@ func ArchiveDirectoryToZip(sourceDir string, destination io.Writer) error {
 	// that's because I cannot possibly know the size of the archive if I stream it concurrently
 	// it is definitely a tradeoff between speed and user experience
 	// two ideas I can come up with rn:
-	// 1. have a user configurable option that asks whether they value realtime progress indication or a speed boost (only significant for big folders tho)   
+	// 1. have a user configurable option that asks whether they value realtime progress indication or a speed boost (only significant for big folders tho)
 	// 2. use some hacky estimation algorithm to figure out the size of the archive before streaming it based on the level of compression and the types of files in the folder
 
 	zipWriter := zip.NewWriter(destination)
@@ -108,7 +108,7 @@ func ArchiveDirectoryToZip(sourceDir string, destination io.Writer) error {
 	zipWriter.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
 		return flate.NewWriter(out, compLevel)
 	})
-	
+
 	intelligentArchive := viper.GetBool("sharing.folders.intelligentArchive")
 	fmt.Printf("%[1]s %[2]s intelligent archiving. Use \"drop config sharing.folders.intelligentArchive\" to learn more.\n", func() string {
 		if intelligentArchive {
@@ -126,13 +126,13 @@ func ArchiveDirectoryToZip(sourceDir string, destination io.Writer) error {
 		IntelligentArchive(sourceDir, zipWriter)
 	} else {
 		dirFS := os.DirFS(sourceDir)
-		err := zipWriter.AddFS(dirFS) 
+		err := zipWriter.AddFS(dirFS)
 
 		if err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
