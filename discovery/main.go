@@ -3,6 +3,7 @@ package discovery
 import (
 	"context"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/grandcat/zeroconf"
@@ -61,13 +62,17 @@ func (cache *Cache) List() (Devices map[string]Device) {
 }
 
 func LaunchService() *zeroconf.Server {
+	interfaces, err := getInterfaces()
+	if err != nil {
+		//ignore, just use nil
+	}
 	server, err := zeroconf.Register(
 		InstanceName,
 		ServiceName,
 		Domain,
 		Port,
 		[]string{UUID, fmt.Sprintf("%d", viper.GetInt("webserver.port"))},
-		nil, // auto-select from interfaces idk I'm not doing allat
+		interfaces,
 	)
 
 	if err != nil {
@@ -80,7 +85,11 @@ func LaunchService() *zeroconf.Server {
 }
 
 func ServiceBrowser() {
-	resolver, err := zeroconf.NewResolver(nil)
+	interfaces, err := getInterfaces()
+	if err != nil {
+		//ignore, just use nil
+	}
+	resolver, err := zeroconf.NewResolver(zeroconf.SelectIfaces(interfaces))
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -121,4 +130,52 @@ func ServiceBrowser() {
 		fmt.Println(err)
 	}
 
+}
+
+func getInterfaces() ([]net.Interface, error) {
+	allInterfaces, err := net.Interfaces()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var usableInterfaces []net.Interface
+	for _, entry := range allInterfaces {
+		if entry.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if entry.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface (i have no clue what this means but was suggested so)
+		}
+		if entry.Flags&net.FlagMulticast == 0 {
+			continue // no multicast support
+		}
+
+		addrs, err := entry.Addrs()
+
+		if err != nil || len(addrs) == 0 {
+			continue // no addresses associated with the interface
+		}
+
+		hasUsableAddr := false
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue // not an IP address
+			}
+			if ipNet.IP.IsLinkLocalUnicast() {
+				continue // link-local address (not routable)
+			}
+			if ipNet.IP.To4() != nil {
+				hasUsableAddr = true // found a usable IPv4 address
+				break
+			}
+		}
+
+		if hasUsableAddr {
+			usableInterfaces = append(usableInterfaces, entry)
+		}
+	}
+
+	return usableInterfaces, nil
 }
