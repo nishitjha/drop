@@ -32,7 +32,7 @@ func getCompressionLevel(level int) int {
 	}
 }
 
-func Execute(sourceDir string, targetAddress string, targetDeviceName string, targetPort string) {
+func Execute(sourceDir string, targetAddress string, targetDeviceName string, targetPort string, requestID string) {
 	archiveFormat := viper.GetString("sharing.folders.archiveFormat")
 
 	if archiveFormat == "zip" && (runtime.GOOS == "linux" || runtime.GOOS == "darwin") {
@@ -61,6 +61,7 @@ func Execute(sourceDir string, targetAddress string, targetDeviceName string, ta
 
 	req.Header.Set("X-Filename", filepath.Base(sourceDir)+"_drop.zip")
 	req.Header.Set("Content-Type", "application/zip")
+	req.Header.Set("X-RequestID", requestID)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -103,7 +104,7 @@ func ArchiveDirectoryToZip(sourceDir string, destination io.Writer) error {
 	configLevel := viper.GetInt("sharing.folders.compressionLevel")
 	compLevel := getCompressionLevel(configLevel)
 
-	fmt.Printf("%s Using compression level: %d.\n", internal.Icons.Fact, compLevel)
+	fmt.Printf("%s Using compression level: %d.\n", internal.Icons.Fact, configLevel)
 
 	zipWriter.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
 		return flate.NewWriter(out, compLevel)

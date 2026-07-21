@@ -43,7 +43,7 @@ func (progWriter *ProgressWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program, textSnippet string, devicePort string) error {
+func StreamFile(deviceAddress string, deviceName string, filePath string, program *tea.Program, textSnippet string, devicePort string, requestID string) error {
 	if textSnippet != "" {
 		httpClient := &http.Client{}
 		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s:%s/upload", deviceAddress, devicePort), strings.NewReader(textSnippet))
@@ -53,8 +53,8 @@ func StreamFile(deviceAddress string, deviceName string, filePath string, progra
 			return fmt.Errorf("%s Error creating request: %v", Icons.Negative, err)
 		}
 
-		// simply send the raw text snippet as the body of the request, and set a custom header to indicate that it's a text snippet
 		req.Header.Set("X-TextSnippet", "true")
+		req.Header.Set("X-RequestID", requestID)
 
 		response, err := httpClient.Do(req)
 
@@ -97,6 +97,7 @@ func StreamFile(deviceAddress string, deviceName string, filePath string, progra
 	}
 	req.Header.Set("X-Filename", filepath.Base(filePath))
 	req.Header.Set("X-Filesize", fmt.Sprintf("%d", fileInfo.Size()))
+	req.Header.Set("X-RequestID", requestID)
 	req.ContentLength = fileInfo.Size()
 	httpClient := &http.Client{
 		Transport: &http.Transport{

@@ -1,24 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>{{ .title }}</title>
-    <link rel="stylesheet" href="/static/request.css">
+<meta charset="UTF-8">
+<title>{{ .title }}</title>
+<link rel="stylesheet" href="/static/request.css">
 </head>
 <body>
-    <div class="container">
-        <div class="content">
-            <h1>Accept a {{ if .directoryMode }}<span class="type type-folder">folder</span>{{ else if .textMode }}<span class="type type-textsnippet">text snippet</span>{{ else }}<span class="type type-file">file</span>{{ end }}<br>from {{ .sender }}?</h1>
-            <div class="details">
+<form class="page" action="/reqweb" method="POST">
+<input type="hidden" name="id" value="{{ .id }}">
+<input type="hidden" name="senderUUID" value="{{ .senderUUID }}">
+<input type="hidden" name="textMode" value="{{ .textMode }}">
+<input type="hidden" name="directoryMode" value="{{ .directoryMode }}">
+<div class="container">
+<div class="content">
+<h1>Accept a {{ if .directoryMode }}<span class="type type-folder">folder</span>{{ else if .textMode }}<span class="type type-textsnippet">text snippet</span>{{ else }}<span class="type type-file">file</span>{{ end }}<br>from <span class="sender sender-name">&quot;{{ .sender }}&quot;</span>?</h1>
+<div class="details">
+{{ if .textMode }}
+                Text size: <span class="detail-value">{{ .fileSize }} characters</span>
+{{ else }}
                 File name: <span class="detail-value">{{ .fileName }}</span><br>
                 File size: <span class="detail-value">{{ formatBytes .fileSize }}</span>
-            </div>
-        </div>
-        <form class="actions" action="/reqweb" method="POST">
-            <input type="hidden" name="id" value="{{ .id }}">
-            <button type="submit" name="answer" value="true">Accept</button>
-            <button type="submit" name="answer" value="false">Decline</button>
-        </form>
-    </div>
+{{ end }}
+</div>
+</div>
+<div class="separator"></div>
+<div class="actions">
+<button type="submit" name="answer" value="true">Accept</button>
+<button type="submit" name="answer" value="false">Decline</button>
+</div>
+</div>
+{{ if not .trusted }}
+<label class="trust-label">
+<input type="checkbox" name="trust" value="true">
+Trust this device
+</label>
+{{ end }}
+</form>
 </body>
 </html>

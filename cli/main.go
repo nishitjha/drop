@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"slices"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"charm.land/bubbles/v2/filepicker"
 	"charm.land/lipgloss/v2"
@@ -144,7 +146,7 @@ var share = &cobra.Command{
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 				defer cancel()
 
-				reqURL := fmt.Sprintf("http://%s:%s/request?senderName=%s&t=%v&UUID=%s", targetDevice.Address, targetDevice.Port, discovery.InstanceName, true, targetDevice.UUID)
+				reqURL := fmt.Sprintf("http://%s:%s/request?senderName=%s&t=%v&UUID=%s&fileSize=%d", targetDevice.Address, targetDevice.Port, discovery.InstanceName, true, targetDevice.UUID, utf8.RuneCountInString(textSnippet))
 
 				req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 				if err != nil {
@@ -163,10 +165,13 @@ var share = &cobra.Command{
 
 			defer result.Response.Body.Close()
 
+			var resp webserver.JSONresponse
+			json.NewDecoder(result.Response.Body).Decode(&resp)
+
 			if result.Response.StatusCode == http.StatusOK {
 				fmt.Printf("%s Great success! \"%s\" accepted your text sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
 
-				internal.Launch(targetDevice.Address, targetDevice.DeviceName, "", textSnippet, targetDevice.Port)
+				internal.Launch(targetDevice.Address, targetDevice.DeviceName, "", textSnippet, targetDevice.Port, resp.RequestID)
 			} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
 				fmt.Printf("%s What a fucking loser. \"%s\" declined your text sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)
 			}
@@ -284,16 +289,19 @@ var share = &cobra.Command{
 
 		defer result.Response.Body.Close()
 
+		var resp webserver.JSONresponse
+		json.NewDecoder(result.Response.Body).Decode(&resp)
+
 		switch result.Response.StatusCode {
 		case http.StatusOK:
 			fmt.Printf("%s Great success! \"%s\" accepted your sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
 
 			if info.IsDir() {
-				archive.Execute(selectedPath, targetDevice.Address, targetDevice.DeviceName, targetDevice.Port)
+				archive.Execute(selectedPath, targetDevice.Address, targetDevice.DeviceName, targetDevice.Port, resp.RequestID)
 				return
 			}
 
-			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedPath, "", targetDevice.Port)
+			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedPath, "", targetDevice.Port, resp.RequestID)
 
 		case http.StatusForbidden, http.StatusUnauthorized:
 			fmt.Printf("%s What a fucking loser. \"%s\" declined your sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Drop</title>
+<link rel="stylesheet" href="/static/result.css">
+</head>
+<body>
+<div class="result">
+<h1>{{ .heading }}</h1>
+<p class="subtitle">{{ .subtitle }}</p>
+{{ if .pollable }}
+<a id="open-link" class="open-button" style="display:none" href="#">Open</a>
+{{ end }}
+</div>
+{{ if .pollable }}
+<script>
+var id = "{{ .id }}";
+var poll = setInterval(function () {
+  fetch("/reqweb/status?id=" + encodeURIComponent(id))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.done && data.path) {
+        clearInterval(poll);
+        var link = document.getElementById("open-link");
+        link.href = "/reveal?path=" + encodeURIComponent(data.path);
+        link.style.display = "inline-block";
+      }
+    })
+    .catch(function () { clearInterval(poll); });
+}, 1500);
+</script>
+{{ end }}
+</body>
+</html>
