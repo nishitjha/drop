@@ -98,6 +98,11 @@ func ServiceBrowser() {
 			// fmt.Printf("Address: %[1]v, %[2]v\n", entry.AddrIPv4, entry.AddrIPv6)
 			// fmt.Println("------- OOGA -------")
 
+			if len(entry.AddrIPv4) == 0 || len(entry.Text) < 2 {
+				continue
+			}
+
+			// currently only using ipv4. if the port is not advertised then we omit the device outright
 			Devices.Update(Device{
 				DeviceName:  entry.Instance,
 				Address:     entry.AddrIPv4[0].String(),

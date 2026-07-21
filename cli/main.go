@@ -175,15 +175,16 @@ var share = &cobra.Command{
 			return
 		}
 
-		var fileInfo os.FileInfo
-		var err error
+		var selectedPath string
+		var info os.FileInfo
+
 		if len(args) > 1 {
 			if _, err := os.Stat(args[1]); os.IsNotExist(err) {
 				fmt.Printf("%s The file or directory \"%s\" does not exist. Make sure you typed the absolute/relative path correctly and try again.\n", internal.Icons.Negative, args[1])
 				return
 			}
 
-			fileInfo, err = os.Stat(args[1])
+			fileInfo, err := os.Stat(args[1])
 			if err != nil {
 				fmt.Printf("%s Error opening file or directory \"%s\": %v\n", internal.Icons.Negative, args[1], err)
 				return
@@ -198,64 +199,10 @@ var share = &cobra.Command{
 				fmt.Printf("%s The path specified points to a file. If you intend to share a file, you must not use the --dir/d flag.\n", internal.Icons.Information)
 				return
 			}
-		}
 
-		result := internal.RunSpinner(fmt.Sprintf("Sent a share request to \"%s\". The device has 3 minutes to accept it.", targetDevice.DeviceName), func() tea.Msg {
-			httpClient := &http.Client{}
-
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-			defer cancel()
-
-			reqURL := fmt.Sprintf("http://%s:%s/request?senderName=%s&t=%v&d=%v&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, targetDevice.Port, discovery.InstanceName, false, dirMode, targetDevice.UUID, func() string {
-				if len(args) > 1 {
-					return fileInfo.Name()
-				}
-				return ""
-			}(), func() int64 {
-				if len(args) > 1 {
-					if fileInfo.IsDir() {
-						return 0
-					}
-					return fileInfo.Size()
-				}
-				return 0
-			}())
-
-			req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
-			if err != nil {
-				return internal.TaskResultMsg{Error: err}
-			}
-
-			response, err := httpClient.Do(req)
-			return internal.TaskResultMsg{Response: response, Error: err}
-		})
-
-		if result.Error != nil {
-			fmt.Printf("%s The request timed out. Maybe they missed it? (either that or they hate you).\n", internal.Icons.Information)
-			return
-		}
-
-		defer result.Response.Body.Close()
-
-		if result.Response.StatusCode == http.StatusOK {
-			fmt.Printf("%s Great success! \"%s\" accepted your sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
-
-			if len(args) > 1 {
-				info, err := os.Stat(args[1])
-				if err != nil {
-					fmt.Printf("%s Error opening the file or directory \"%s\": %v\n", internal.Icons.Negative, args[1], err)
-					return
-				}
-
-				if info.IsDir() {
-					archive.Execute(args[1], targetDevice.Address, targetDevice.DeviceName, targetDevice.Port)
-					return
-				}
-
-				internal.Launch(targetDevice.Address, targetDevice.DeviceName, args[1], "", targetDevice.Port)
-				return
-			}
-
+			selectedPath = args[1]
+			info = fileInfo
+		} else {
 			picker := filepicker.New()
 			picker.DirAllowed = dirMode
 			picker.FileAllowed = !dirMode
@@ -293,7 +240,7 @@ var share = &cobra.Command{
 				return
 			}
 
-			info, err := os.Stat(selectedModel.SelectedFile)
+			fileInfo, err := os.Stat(selectedModel.SelectedFile)
 			if err != nil {
 				fmt.Printf("%s Error opening the %s \"%s\": %v\n", internal.Icons.Negative, func() string {
 					if dirMode {
@@ -304,14 +251,51 @@ var share = &cobra.Command{
 				return
 			}
 
+			selectedPath = selectedModel.SelectedFile
+			info = fileInfo
+		}
+
+		result := internal.RunSpinner(fmt.Sprintf("Sent a share request to \"%s\". The device has 3 minutes to accept it.", targetDevice.DeviceName), func() tea.Msg {
+			httpClient := &http.Client{}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+
+			reqURL := fmt.Sprintf("http://%s:%s/request?senderName=%s&t=%v&d=%v&UUID=%s&fileName=%s&fileSize=%d", targetDevice.Address, targetDevice.Port, discovery.InstanceName, false, dirMode, targetDevice.UUID, info.Name(), func() int64 {
+				if info.IsDir() {
+					return 0
+				}
+				return info.Size()
+			}())
+
+			req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+			if err != nil {
+				return internal.TaskResultMsg{Error: err}
+			}
+
+			response, err := httpClient.Do(req)
+			return internal.TaskResultMsg{Response: response, Error: err}
+		})
+
+		if result.Error != nil {
+			fmt.Printf("%s The request timed out. Maybe they missed it? (either that or they hate you).\n", internal.Icons.Information)
+			return
+		}
+
+		defer result.Response.Body.Close()
+
+		switch result.Response.StatusCode {
+		case http.StatusOK:
+			fmt.Printf("%s Great success! \"%s\" accepted your sharing request.\n", internal.Icons.Positive, targetDevice.DeviceName)
+
 			if info.IsDir() {
-				archive.Execute(selectedModel.SelectedFile, targetDevice.Address, targetDevice.DeviceName, targetDevice.Port)
+				archive.Execute(selectedPath, targetDevice.Address, targetDevice.DeviceName, targetDevice.Port)
 				return
 			}
 
-			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedModel.SelectedFile, "", targetDevice.Port)
+			internal.Launch(targetDevice.Address, targetDevice.DeviceName, selectedPath, "", targetDevice.Port)
 
-		} else if result.Response.StatusCode == http.StatusForbidden || result.Response.StatusCode == http.StatusUnauthorized {
+		case http.StatusForbidden, http.StatusUnauthorized:
 			fmt.Printf("%s What a fucking loser. \"%s\" declined your sharing request.\n", internal.Icons.Negative, targetDevice.DeviceName)
 		}
 	},
@@ -377,6 +361,10 @@ var config = &cobra.Command{
 
 		if len(args) == 2 {
 			viper.Set(args[0], args[1])
+			if err := viper.WriteConfig(); err != nil {
+				fmt.Printf("%s Error saving config: %v\n", internal.Icons.Negative, err)
+				return
+			}
 			fmt.Printf("The setting \"%s\" has been set to \"%v\".\n", args[0], viper.Get(args[0]))
 			return
 		}
