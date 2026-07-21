@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/grandcat/zeroconf"
+	"github.com/mitchellh/mapstructure"
 	"github.com/nishitjha/drop/internal"
 	"github.com/spf13/viper"
 )
@@ -176,21 +177,20 @@ func RetrieveDevices() map[string]Device {
 		// NOT! haha im so funny
 	}
 
-	for _, deviceUUID := range InternalViper.AllKeys() {
+	for deviceUUID := range InternalViper.AllSettings() {
 		// check if any device in the memory devices list has the same UUID as the device in the file cache. if it does, we skip it
 		if _, exists := memDevices[deviceUUID]; !exists {
 			// device is in file cache but not in memory cache, check if it's stale
 			var device Device
-			if err := InternalViper.UnmarshalKey(deviceUUID, &device); err != nil {
-				fmt.Println("unmarshal failed:", err) // temporary debug line
+			if err := InternalViper.UnmarshalKey(deviceUUID, &device, viper.DecodeHook(mapstructure.StringToTimeHookFunc(time.RFC3339))); err != nil {
 				continue
 			}
 
-			// if time.Since(device.LastSeenTime) > 5*time.Minute {
-			// 	// to be implemented
-			// 	InternalViper.Set(deviceUUID, nil)
-			// 	continue
-			// }
+			if time.Since(device.LastSeenTime) > 5*time.Minute {
+				// to be implemented
+				InternalViper.Set(deviceUUID, nil)
+				continue
+			}
 
 			Devices.Update(device)
 			memDevices[deviceUUID] = device
