@@ -54,8 +54,9 @@ var list = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var devices map[string]discovery.Device
 		internal.RunSpinner("Scanning for devices...", func() tea.Msg {
-			discovery.ServiceBrowser()
+			go discovery.ServiceBrowser()
 			time.Sleep(2 * time.Second)
+			discovery.RetrieveDevices()
 			devices = discovery.Devices.List()
 			return internal.TaskResultMsg{}
 		})
@@ -100,10 +101,12 @@ var share = &cobra.Command{
 			return
 		}
 
-		discovery.ServiceBrowser()
-		devices := discovery.Devices.List()
+		go discovery.ServiceBrowser()
 
 		time.Sleep(2 * time.Second)
+		discovery.RetrieveDevices()
+
+		devices := discovery.Devices.List()
 
 		if len(devices) == 0 {
 			fmt.Printf("%s Couldn't find any devices on your network. Make sure they're running Drop and try again.\n", internal.Icons.Negative)
@@ -206,6 +209,7 @@ var share = &cobra.Command{
 			picker := filepicker.New()
 			picker.DirAllowed = dirMode
 			picker.FileAllowed = !dirMode
+			picker.ShowSize = true
 
 			homeDir, _ := os.UserHomeDir()
 			picker.CurrentDirectory = homeDir
@@ -304,44 +308,42 @@ var share = &cobra.Command{
 var config = &cobra.Command{
 	Use:     "config [setting] [newValue]",
 	Aliases: []string{"settings", "con", "conf"},
-	Short:   "Use drop [config/settings/con/conf] to view Drop's configuration. Use drop [config/settings/con] {setting} {newValue} to change a setting.",
+	Short:   "Use \"drop [config/settings/con/conf]\" to view Drop's configuration, and \"drop [config/settings/con] {setting}\" to view a specific setting. Use \"drop [config/settings/con] {setting} {newValue}\" to change a setting.",
 	Run: func(cmd *cobra.Command, args []string) {
+		var description = map[string]string{
+			"sharing.receiveDir":                 "Default folder where incoming files are saved.",
+			"sharing.isDiscoverable":             "Choose whether this device is visible to others on the network via mDNS.",
+			"sharing.askReceiveDirEverytime":     "Choose whether you should be asked where to save incoming files everytime instead of using the default.",
+			"sharing.trustAllDevices":            "Skip confirmation prompts and accept requests from all devices automatically.",
+			"sharing.trustedDevices":             "Set of devices allowed to send files without you having to accept a sharing request.",
+			"sharing.askToTrustEverytime":        "Ask if you wish to add a new device to the trusted list every time you accept a request from said device.",
+			"sharing.autoRejectUntrustedDevices": "Automatically reject incoming requests from devices not in the trusted list.",
+			"sharing.autoRenameExistingFiles":    "Append a suffix to incoming files instead of overwriting existing ones with the same name.",
+
+			"sharing.acceptTextSnippetsByDefault": "Automatically accept incoming plain-text/clipboard snippets without a prompt.",
+			"sharing.autoCopyToClipboard":         "Copy received text snippets to the clipboard automatically.",
+
+			"sharing.advanced.enableTransferLog": "Keep a persistent log of completed and failed transfers.",
+			"sharing.advanced.logFilePath":       "Path to the transfer history log file.",
+
+			"sharing.folders.archiveFormat":        "Archive format used when sending folders (zip or tar.gz), OS-dependent by default.",
+			"sharing.folders.compressionLevel":     "Compression level for folder archives, from 0 (none) to 3 (max); higher levels use more CPU in exchange for smaller transfers.",
+			"sharing.folders.intelligentArchive":   "Skip compressing files that don't benefit from it (media, existing archives) and exclude common dev/VCS directories when archiving folders.",
+			"sharing.folders.autoExtractOnReceive": "Automatically extract received folder archives instead of leaving them compressed.",
+
+			"webserver.port": "Port the local HTTP server listens on for incoming transfers and the web UI.",
+
+			"discovery.instanceName":         "Name this device advertises to others on the network.",
+			"discovery.advanced.serviceName": "mDNS service type used for discovery (advanced, don't change unless you know why).",
+			"discovery.advanced.domain":      "mDNS domain used for discovery (advanced, don't change unless you know why).",
+			"discovery.advanced.port":        "Port used for the mDNS discovery service (separate from the webserver port).",
+			"discovery.advanced.deviceUUID":  "Unique identifier for this device, used to distinguish it from others on the network. Do not change this even if you know what you're doing.",
+			"network.maxBandwidthMBps":       "Caps outgoing transfer speed in MB/s; 0 here corresponds to no upper bound on the speed.",
+		}
 
 		if len(args) == 0 {
 			headers := []string{"Setting", "Current Value", "Description"}
 			var rows [][]string
-
-			var description = map[string]string{
-				"sharing.receiveDir":                 "Default folder where incoming files are saved.",
-				"sharing.isDiscoverable":             "Choose whether this device is visible to others on the network via mDNS.",
-				"sharing.askReceiveDirEverytime":     "Choose whether you should be asked where to save incoming files everytime instead of using the default.",
-				"sharing.trustAllDevices":            "Skip confirmation prompts and accept requests from all devices automatically.",
-				"sharing.trustedDevices":             "Set of devices allowed to send files without you having to accept a sharing request.",
-				"sharing.autoRejectUntrustedDevices": "Automatically reject incoming requests from devices not in the trusted list.",
-				"sharing.autoRenameExistingFiles":    "Append a suffix to incoming files instead of overwriting existing ones with the same name.",
-
-				"sharing.acceptTextSnippetsByDefault": "Automatically accept incoming plain-text/clipboard snippets without a prompt.",
-				"sharing.autoCopyToClipboard":         "Copy received text snippets to the clipboard automatically.",
-
-				"sharing.advanced.enableTransferLog": "Keep a persistent log of completed and failed transfers.",
-				"sharing.advanced.logFilePath":       "Path to the transfer history log file.",
-
-				"sharing.folders.archiveFormat":        "Archive format used when sending folders (zip or tar.gz), OS-dependent by default.",
-				"sharing.folders.compressionLevel":     "Compression level for folder archives, from 0 (none) to 3 (max); higher levels use more CPU in exchange for smaller transfers.",
-				"sharing.folders.intelligentArchive":   "Skip compressing files that don't benefit from it (media, existing archives) and exclude common dev/VCS directories when archiving folders.",
-				"sharing.folders.autoExtractOnReceive": "Automatically extract received folder archives instead of leaving them compressed.",
-
-				"webserver.port": "Port the local HTTP server listens on for incoming transfers and the web UI.",
-
-				"discovery.instanceName":         "Name this device advertises to others on the network.",
-				"discovery.advanced.serviceName": "mDNS service type used for discovery (advanced, don't change unless you know why).",
-				"discovery.advanced.domain":      "mDNS domain used for discovery (advanced, don't change unless you know why).",
-				"discovery.advanced.metadata":    "Raw TXT records advertised alongside the mDNS service.",
-				"discovery.advanced.port":        "Port used for the mDNS discovery service (separate from the webserver port).",
-				"discovery.advanced.deviceUUID":  "Unique identifier for this device, used to distinguish it from others on the network. Do not change this even if you know what you're doing.",
-				"network.maxBandwidthMBps":       "Caps outgoing transfer speed in MB/s; 0 here corresponds to no upper bound on the speed.",
-			}
-
 			// in case you get a bug here it prolly has to do with the fact that viper.AllKeys() returns the keyname in lowercase
 			// the description map has the keys in camelCase so yeah
 
@@ -356,6 +358,7 @@ var config = &cobra.Command{
 		}
 		if len(args) == 1 {
 			fmt.Printf("The setting \"%s\" is currently set to \"%v\".\n", args[0], viper.Get(args[0]))
+			fmt.Println(description[args[0]])
 			return
 		}
 

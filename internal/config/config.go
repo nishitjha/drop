@@ -28,6 +28,7 @@ func Launch() error {
 	viper.SetDefault("sharing.isDiscoverable", true)
 	viper.SetDefault("sharing.askReceiveDirEverytime", false)
 	viper.SetDefault("sharing.trustAllDevices", false)
+	viper.SetDefault("sharing.askToTrustEverytime", true)
 	viper.SetDefault("sharing.trustedDevices", []string{})
 	viper.SetDefault("sharing.autoRejectUntrustedDevices", false)
 	viper.SetDefault("sharing.autoRenameExistingFiles", true)
@@ -71,7 +72,6 @@ func Launch() error {
 	viper.SetDefault("discovery.instanceName", hostname)
 	viper.SetDefault("discovery.advanced.serviceName", "_drop._tcp")
 	viper.SetDefault("discovery.advanced.domain", "local.")
-	viper.SetDefault("discovery.advanced.metadata", []string{"txtv=1", "message = i made poopy in my pants"})
 	viper.SetDefault("discovery.advanced.port", 3001)
 	viper.SetDefault("discovery.advanced.deviceUUID", uuid.New().String())
 	viper.SetDefault("network.maxBandwidthMBps", 0) //0 is unlimited
