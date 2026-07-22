@@ -210,16 +210,6 @@ func RetrieveDevices() map[string]Device {
 					// update last seen time
 					device.LastSeenTime = time.Now()
 					InternalViper.Set(deviceUUID, device)
-
-					updateStaleCache(Device{
-						DeviceName:   device.DeviceName,
-						Address:      device.Address,
-						Status:       device.Status,
-						LastUpdated:  device.LastUpdated,
-						UUID:         device.UUID,
-						Port:         device.Port,
-						LastSeenTime: time.Now(),
-					})
 					_ = InternalViper.WriteConfig()
 				}
 				resp.Body.Close()
