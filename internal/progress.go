@@ -20,7 +20,7 @@ var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 
 func Launch(deviceAddress string, deviceName string, filePath string, textSnippet string, devicePort string, requestID string) {
 	m := ProgressModel{
-		Progress:      progress.New(progress.WithDefaultBlend()),
+		Progress:      progress.New(progress.WithColors(lipgloss.BrightWhite)),
 		DeviceAddress: deviceAddress,
 		DeviceName:    deviceName,
 		FilePath:      filePath,

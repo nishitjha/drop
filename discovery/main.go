@@ -187,7 +187,7 @@ func RetrieveDevices() map[string]Device {
 				continue
 			}
 
-			if time.Since(device.LastSeenTime) > 5*time.Minute {
+			if time.Since(device.LastSeenTime) > 10*time.Minute {
 				// to be implemented
 				httpClient := &http.Client{
 					Timeout: 2 * time.Second,
