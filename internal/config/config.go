@@ -20,7 +20,7 @@ func Launch() error {
 	configFile := filepath.Join(home, ".drop.yaml")
 	viper.SetConfigFile(configFile)
 
-	viper.SetDefault("webserver.port", 3000)
+	viper.SetDefault("webserver.port", 42069)
 
 	// default receive directory is ~/Downloads/Drop
 	// but i'm wondering if one should have the option to have the file saved to the current working directory
@@ -71,7 +71,7 @@ func Launch() error {
 	viper.SetDefault("discovery.instanceName", hostname)
 	viper.SetDefault("discovery.advanced.serviceName", "_drop._tcp")
 	viper.SetDefault("discovery.advanced.domain", "local.")
-	viper.SetDefault("discovery.advanced.port", 3001)
+	viper.SetDefault("discovery.advanced.port", 42070)
 	viper.SetDefault("discovery.advanced.deviceUUID", uuid.New().String())
 	viper.SetDefault("network.maxBandwidthMBps", 0) //0 is unlimited
 
