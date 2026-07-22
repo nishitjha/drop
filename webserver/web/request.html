@@ -13,17 +13,19 @@
 <input type="hidden" name="directoryMode" value="{{ .directoryMode }}">
 <div class="container">
 <div class="content">
-<h1>Accept a {{ if .directoryMode }}<span class="type type-folder">folder</span>{{ else if .textMode }}<span class="type type-textsnippet">text snippet</span>{{ else }}<span class="type type-file">file</span>{{ end }}<br>from <span class="sender sender-name">&quot;{{ .sender }}&quot;</span>?</h1>
+<h1>Accept a {{ if .directoryMode }}<span class="type type-folder">folder</span>{{ else if .textMode }}<span class="type type-textsnippet">text snippet</span>{{ else }}<span class="type type-file">file</span>{{ end }} from<br><span class="sender sender-name">&quot;{{ .sender }}&quot;</span>?</h1>
 <div class="details">
 {{ if .textMode }}
                 Text size: <span class="detail-value">{{ .fileSize }} characters</span>
+{{ else if .directoryMode }}
+                Folder name: <span class="detail-value">{{ .fileName }}</span><br>
+                Folder size: <span class="detail-value-sad">could not compute</span>
 {{ else }}
                 File name: <span class="detail-value">{{ .fileName }}</span><br>
                 File size: <span class="detail-value">{{ formatBytes .fileSize }}</span>
 {{ end }}
 </div>
 </div>
-<div class="separator"></div>
 <div class="actions">
 <button type="submit" name="answer" value="true">Accept</button>
 <button type="submit" name="answer" value="false">Decline</button>

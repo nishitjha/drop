@@ -118,9 +118,9 @@ func ArchiveDirectoryToZip(sourceDir string, destination io.Writer) error {
 		return internal.Icons.Warning
 	}(), func() string {
 		if intelligentArchive {
-			return "Using"
+			return " Using"
 		}
-		return "Not using"
+		return " Not using"
 	}())
 
 	if intelligentArchive {

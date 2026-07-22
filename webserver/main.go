@@ -139,7 +139,7 @@ func Listen(mode string) {
 				return
 			}
 			timestamp := time.Now().Format("02-01-06")
-			location := filepath.Join(receiveDir, fmt.Sprintf("text_snippet_%s.txt", timestamp))
+			location := uniquePath(filepath.Join(receiveDir, fmt.Sprintf("text_snippet_%s.txt", timestamp)))
 
 			err := os.MkdirAll(receiveDir, os.ModePerm)
 			if err != nil {
@@ -174,7 +174,7 @@ func Listen(mode string) {
 		}
 
 		fileName := context.GetHeader("X-Filename")
-		location := filepath.Join(receiveDir, fileName)
+		location := uniquePath(filepath.Join(receiveDir, fileName))
 
 		err := os.MkdirAll(receiveDir, os.ModePerm)
 		if err != nil {
@@ -297,6 +297,7 @@ func Listen(mode string) {
 		id := context.PostForm("id")
 		senderUUID := context.PostForm("senderUUID")
 		textMode := context.PostForm("textMode") == "true"
+		directoryMode := context.PostForm("directoryMode") == "true"
 		answer := context.PostForm("answer") == "true"
 		trust := context.PostForm("trust") == "true"
 
@@ -333,7 +334,15 @@ func Listen(mode string) {
 			return
 		}
 
-		subtitle := "You can close this tab now."
+		subtitle := fmt.Sprintf("You'll receive your %s in... just kidding IDK how much time it'll take. \n You can close this tab or wait till an \"Open\" button appears here.", func() string {
+			if !textMode && !directoryMode {
+				return "file"
+			} else if textMode {
+				return "text snippet"
+			} else {
+				return "folder"
+			}
+		}())
 		if textMode {
 			if viper.GetBool("sharing.autoCopyToClipboard") {
 				subtitle = "The text will be copied to your clipboard."
@@ -401,7 +410,7 @@ func Listen(mode string) {
 				return
 			}
 
-			archivePath := filepath.Join(receiveDir, fileName)
+			archivePath := uniquePath(filepath.Join(receiveDir, fileName))
 
 			writeArchive := func() error {
 				out, err := os.Create(archivePath)
@@ -430,16 +439,17 @@ func Listen(mode string) {
 			}
 
 			if autoExtract {
-				err := archive.ExtractArchive(archivePath, receiveDir, fileName)
+				extractDir := uniquePath(filepath.Join(receiveDir, strings.TrimSuffix(fileName, "_drop.zip")))
+				err := archive.ExtractArchive(archivePath, extractDir, fileName)
 				if err != nil {
 					fmt.Printf("%s Error extracting archive: %v\n", internal.Icons.Negative, err)
 					context.JSON(500, JSONresponse{Message: "Something went wrong."})
 					return
 				} else {
-					fmt.Printf("%s Successfully extracted archived folder to %s.\n", internal.Icons.Positive, filepath.Join(receiveDir, strings.TrimSuffix(fileName, "_drop.zip")))
+					fmt.Printf("%s Successfully extracted archived folder to %s.\n", internal.Icons.Positive, extractDir)
 					if reqID := context.GetHeader("X-RequestID"); reqID != "" {
 						transferMu.Lock()
-						transferPaths[reqID] = filepath.Join(receiveDir, strings.TrimSuffix(fileName, "_drop.zip"))
+						transferPaths[reqID] = extractDir
 						transferMu.Unlock()
 					}
 				}
@@ -652,4 +662,26 @@ func HandleRequests(mode string) {
 		}
 	}
 
+}
+
+func uniquePath(path string) string {
+	if !viper.GetBool("sharing.autoRenameExistingFiles") {
+		return path
+	}
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return path
+	}
+
+	dir := filepath.Dir(path)
+	base := filepath.Base(path)
+	ext := filepath.Ext(base)
+	name := strings.TrimSuffix(base, ext)
+
+	for i := 1; ; i++ {
+		candidate := filepath.Join(dir, fmt.Sprintf("%s (%d)%s", name, i, ext))
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate
+		}
+	}
 }
