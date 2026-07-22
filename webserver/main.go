@@ -385,6 +385,11 @@ func Listen(mode string) {
 		cmd.Start()
 		context.String(200, "Opened.")
 	})
+
+	router.GET("/alive", func(context *gin.Context) {
+		context.String(200, "whats up dawg")
+	})
+
 	router.POST("/archive", func(context *gin.Context) {
 		receiveDir := viper.GetString("sharing.receiveDir")
 		askEverytime := viper.GetBool("sharing.askReceiveDirEverytime")

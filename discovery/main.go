@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -188,9 +189,33 @@ func RetrieveDevices() map[string]Device {
 
 			if time.Since(device.LastSeenTime) > 5*time.Minute {
 				// to be implemented
-				InternalViper.Set(deviceUUID, nil)
-				continue
+				httpClient := &http.Client{
+					Timeout: 2 * time.Second,
+				}
+				req, err := http.NewRequest("GET", fmt.Sprintf("http://%s:%s/alive", device.Address, device.Port), nil)
+				if err != nil {
+					// remove from file cache anyways lmao
+					InternalViper.Set(deviceUUID, nil)
+					_ = InternalViper.WriteConfig()
+					continue
+				}
+
+				resp, err := httpClient.Do(req)
+				if err != nil {
+					// remove from file cache
+					InternalViper.Set(deviceUUID, nil)
+					_ = InternalViper.WriteConfig()
+					continue
+				} else {
+					// update last seen time
+					device.LastSeenTime = time.Now()
+					InternalViper.Set(deviceUUID, device)
+					_ = InternalViper.WriteConfig()
+				}
+				resp.Body.Close()
 			}
+
+			// add the device to the memory cache
 
 			Devices.Update(device)
 			memDevices[deviceUUID] = device
